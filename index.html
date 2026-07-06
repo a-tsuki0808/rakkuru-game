@@ -837,16 +837,25 @@
             return 'enemy';
         }
 
-        function executeTurnResolve(myHandStr, myIdx, opHandStr, opIdx) {
+       function executeTurnResolve(myHandStr, myIdx, opHandStr, opIdx) {
             document.getElementById("log-box").innerHTML = `【ターン ${currentTurn}】`;
             
-            const pHand = myRole === "guest" ? opHandStr : myHandStr;
-            const eHand = myRole === "guest" ? myHandStr : opHandStr;
-            const pIdxReal = myRole === "guest" ? opIdx : myIdx;
-            const eIdxReal = myRole === "guest" ? myIdx : opIdx;
+            // 内部判定用：pHandは常にホスト（A）のカード、eHandは常にゲスト（B）のカードにする
+            const pHand = (myRole === "guest") ? opHandStr : myHandStr;
+            const eHand = (myRole === "guest") ? myHandStr : opHandStr;
+            const pIdxReal = (myRole === "guest") ? opIdx : myIdx;
+            const eIdxReal = (myRole === "guest") ? myIdx : opIdx;
 
-            document.getElementById("p-played-card").innerHTML = `<img src="${JANKEN_IMAGES[pHand]}" class="battle-hand-img">`;
-            document.getElementById("e-played-card").innerHTML = `<img src="${JANKEN_IMAGES[eHand]}" class="battle-hand-img">`;
+            // 画面表示用：どちらの画面でも「左側（p-played）が自分」「右側（e-played）が相手」にする
+            if (myRole === "guest") {
+                // 自分がゲスト（B）の場合：左に自分のカード（myHandStr）、右に相手ホストのカード（opHandStr）
+                document.getElementById("p-played-card").innerHTML = `<img src="${JANKEN_IMAGES[myHandStr]}" class="battle-hand-img">`;
+                document.getElementById("e-played-card").innerHTML = `<img src="${JANKEN_IMAGES[opHandStr]}" class="battle-hand-img">`;
+            } else {
+                // 自分がホスト（A）またはソロの場合：左に自分のカード（myHandStr）、右に相手のカード（opHandStr）
+                document.getElementById("p-played-card").innerHTML = `<img src="${JANKEN_IMAGES[myHandStr]}" class="battle-hand-img">`;
+                document.getElementById("e-played-card").innerHTML = `<img src="${JANKEN_IMAGES[opHandStr]}" class="battle-hand-img">`;
+            }
 
             if (playerChar.trait === "turnHealFive") { playerHp = Math.min(playerChar.maxHp, playerHp + 5); logMessage("フロリエル：HP5回復。"); }
             if (enemyChar.trait === "turnHealFive") { enemyHp = Math.min(enemyChar.maxHp, enemyHp + 5); logMessage("相手のフロリエル：HP5回復。"); }
