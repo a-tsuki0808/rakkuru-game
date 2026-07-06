@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ラックル：部屋番号対応・オンライン＆画像完全版</title>
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <title>ラックル</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
         :root {
             --primary-color: #007bff;
@@ -53,7 +54,8 @@
             flex-direction: column;
             gap: 15px;
             align-items: center;
-            margin-top: 30px;
+            margin-top: 20px;
+            width: 100%;
         }
 
         .action-btn {
@@ -68,14 +70,36 @@
             transition: all 0.2s ease;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             width: 280px;
+            box-sizing: border-box;
         }
         .action-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); opacity: 0.9; }
-        .action-btn:active { transform: translateY(0); }
+        .action-btn:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; box-shadow: none; }
+
         .btn-start { background: var(--success-color); }
         .btn-gacha { background: var(--warning-color); }
         .btn-back { background: #6c757d; width: auto; padding: 8px 16px; font-size: 0.9em; }
 
-        /* キャラクターリスト選択レイアウト */
+        .name-input-box {
+            background: #edf2f7;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 0 auto 20px auto;
+            width: 280px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .text-input { 
+            padding: 10px; 
+            width: 100%; 
+            border-radius: 6px; 
+            border: 1px solid #cbd5e1; 
+            font-size: 1em; 
+            text-align: center; 
+            box-sizing: border-box;
+        }
+
         .char-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -95,38 +119,17 @@
             cursor: pointer;
             transition: all 0.2s;
             background: #fff;
-            position: relative;
         }
-        .char-card:hover { border-color: var(--primary-color); background: #f8fafc; }
-        .char-card.selected { border-color: var(--primary-color); background: #ebf8ff; box-shadow: 0 0 10px rgba(0,123,255,0.2); }
+        .char-card.selected { border-color: var(--primary-color); background: #ebf8ff; }
         .char-card.locked { background: #f1f5f9; cursor: not-allowed; opacity: 0.6; }
-        .char-card.locked:hover { border-color: #e2e8f0; background: #f1f5f9; }
 
-        /* キャラクター画像用スタイル */
-        .char-img {
-            width: 80px;
-            height: 80px;
-            object-fit: cover;
-            border-radius: 50%;
-            margin-bottom: 10px;
-            background: #eee;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .battle-char-img {
-            width: 120px;
-            height: 120px;
-            object-fit: cover;
-            border-radius: 50%;
-            margin-bottom: 15px;
-            background: #eee;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-        }
+        .char-img { width: 80px; height: 80px; object-fit: cover; border-radius: 50%; margin-bottom: 10px; background: #eee; }
+        .battle-char-img { width: 120px; height: 120px; object-fit: cover; border-radius: 50%; margin-bottom: 15px; background: #eee; }
 
         .char-name { font-weight: bold; font-size: 1.1em; margin-bottom: 5px; }
         .char-stats { font-size: 0.9em; color: #4a5568; }
         .char-trait { font-size: 0.8em; color: #718096; margin-top: 5px; font-style: italic; }
 
-        /* バトル構成エリア */
         .build-area {
             display: flex;
             background: #f8fafc;
@@ -141,7 +144,6 @@
         .slot-container { display: flex; flex-direction: column; gap: 8px; text-align: left; }
         .slot-select { padding: 8px; font-size: 1em; border-radius: 6px; border: 1px solid #cbd5e1; width: 140px; }
 
-        /* オンライン接続周りのUI */
         .online-setup-box {
             background: #edf2f7;
             padding: 20px;
@@ -150,10 +152,8 @@
             font-size: 0.95em;
             text-align: left;
         }
-        .online-setup-box h3 { margin-top: 0; margin-bottom: 10px; font-size: 1.1em; color: #2d3748; }
         .room-input { padding: 8px; width: 150px; border-radius: 4px; border: 1px solid #ccc; font-size: 1em; text-align: center; font-weight: bold; }
 
-        /* バトルメイン画面レイアウト */
         .battle-container {
             display: grid;
             grid-template-areas: 
@@ -170,14 +170,14 @@
             box-sizing: border-box;
         }
 
-        .p-char-area { grid-area: p-char; display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 8px; }
-        .e-char-area { grid-area: e-char; display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 8px; }
+        .p-char-area, .e-char-area { display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 8px; }
+        .p-char-area { grid-area: p-char; } .e-char-area { grid-area: e-char; }
         .center-area { grid-area: center; display: flex; justify-content: center; gap: 20px; align-items: center; background: rgba(255, 255, 255, 0.9); padding: 10px; border-radius: 8px; min-height: 120px; }
         .p-ui-area { grid-area: p-ui; display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 8px; }
         .logs-area { grid-area: logs; }
 
         .hp-bar-bg { background: #e2e8f0; height: 20px; border-radius: 10px; margin: 10px 0; overflow: hidden; width: 100%; }
-        .hp-bar-fill { background: var(--success-color); height: 100%; width: 100%; transition: width 0.3s ease; }
+        .hp-bar-fill { height: 100%; width: 100%; transition: width 0.3s ease; }
 
         .battle-logs {
             background: rgba(30, 41, 59, 0.9);
@@ -189,84 +189,43 @@
             text-align: left;
             font-family: monospace;
             font-size: 0.95em;
-            line-height: 1.5;
             width: 100%;
             box-sizing: border-box;
         }
 
-        .hand-container {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 10px;
-        }
+        .hand-container { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
         .card-btn {
-            background: #fff;
-            border: 2px solid #cbd5e1;
-            border-radius: 8px;
-            padding: 10px;
-            font-size: 0.9em;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 80px;
+            background: #fff; border: 2px solid #cbd5e1; border-radius: 8px; padding: 10px;
+            font-size: 0.9em; font-weight: bold; cursor: pointer; transition: all 0.2s;
+            display: flex; flex-direction: column; align-items: center; width: 80px;
         }
-        .card-btn img {
-            width: 50px;
-            height: 50px;
-            object-fit: contain;
-            margin-bottom: 5px;
-        }
+        .card-btn img { width: 50px; height: 50px; object-fit: contain; margin-bottom: 5px; }
         .card-btn:hover:not(:disabled) { border-color: var(--primary-color); background: #f8fafc; transform: translateY(-3px); }
         .card-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .card-btn.locked-card { border-color: var(--danger-color); background: #ffeecf; }
 
-        .battle-hand-img {
-            width: 100px;
-            height: 100px;
-            object-fit: contain;
-        }
-
+        .battle-hand-img { width: 100px; height: 100px; object-fit: contain; }
         .timer-display { font-size: 1.5em; font-weight: bold; color: var(--danger-color); margin: 10px 0; }
 
-        /* ガチャ画面 */
-        .gacha-box {
-            background: #fffdf5;
-            border: 2px dashed #d4af37;
-            border-radius: 12px;
-            padding: 30px;
-            margin: 20px 0;
-        }
+        .gacha-box { background: #fffdf5; border: 2px dashed #d4af37; border-radius: 12px; padding: 30px; margin: 20px 0; }
         .gacha-result-animation { min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 20px 0; }
         .gacha-anim-text { font-size: 4em; }
 
-        /* アイテムショップ/所持品 */
-        .item-market {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-        .item-card {
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 15px;
-            background: #fff;
-            text-align: left;
-        }
-        .item-card button { width: 100%; margin-top: 10px; }
+        .item-market { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin: 20px 0; }
+        .item-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; background: #fff; text-align: left; }
     </style>
 </head>
 <body>
 
-    <h1>ラックル ⚔️</h1>
+    <h1>ラックル ⚔️ </h1>
     <div class="currency">💰 所持金: <span id="gold-amount">0</span> G</div>
 
     <div id="title-screen" class="screen">
         <h2>メインメニュー</h2>
+        <div class="name-input-box">
+            <label style="font-weight: bold; display: block; margin-bottom: 8px; font-size: 0.9em; color:#4a5568;">👤 プレイヤー名</label>
+            <input type="text" id="player-profile-name" class="text-input" placeholder="名前を入力してください" oninput="saveProfileName()">
+        </div>
         <div class="title-menu-container">
             <button class="action-btn btn-start" onclick="startSinglePlayerSetup()">AI対戦を開始 (ソロ) 🤖</button>
             <button class="action-btn" style="background: #4a5568;" onclick="startOnlineSetup()">オンライン対戦の準備 🌐</button>
@@ -284,62 +243,30 @@
         
         <div id="online-connection-panel" class="online-setup-box hidden">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <div id="host-side-ui" style="border-right: 1px solid #cbd5e1; padding-right: 20px;">
+                <div style="border-right: 1px solid #cbd5e1; padding-right: 20px;">
                     <h3>🏠 部屋を作る（ホスト）</h3>
-                    <p>好きな部屋番号（4〜6桁の数字など）を入力して「部屋を作成」を押してください。</p>
+                    <p>部屋番号を入力して部屋を作成してください。</p>
                     <input type="text" id="create-room-number" class="room-input" placeholder="例: 1234">
                     <button class="action-btn" style="width:auto; padding:6px 15px; font-size:0.9em; margin-top:5px; background:var(--success-color);" onclick="createOnlineRoom()">部屋を作成して待機</button>
                 </div>
-                <div id="guest-side-ui">
+                <div>
                     <h3>🚪 部屋に入る（ゲスト）</h3>
-                    <p>相手が作った部屋番号を入力して「部屋に入る」を押してください。</p>
+                    <p>相手が作った部屋番号を入力して入室してください。</p>
                     <input type="text" id="join-room-number" class="room-input" placeholder="例: 1234">
                     <button class="action-btn" style="width:auto; padding:6px 15px; font-size:0.9em; margin-top:5px;" onclick="joinOnlineRoom()">部屋に入る</button>
                 </div>
             </div>
-            <div id="connection-status-text" style="margin-top:15px; font-weight:bold; color:var(--warning-color); text-align: center;">接続状態: 未接続（部屋番号を入力してください）</div>
+            <div id="connection-status-text" style="margin-top:15px; font-weight:bold; color:var(--warning-color); text-align: center;">接続状態: 未接続</div>
         </div>
 
-        <p style="text-align: left; color: #666; font-size: 0.95em;">使用するキャラクターを1人選び、スロットの手札構成（3枚）と、使用する消費アイテムを決めてください。</p>
-        
+        <p style="text-align: left; color: #666; font-size: 0.95em;">キャラクターと手札、消費アイテムを選んでください。</p>
         <div class="char-grid" id="char-selection-grid"></div>
 
         <div class="build-area">
-            <div class="slot-container">
-                <label>⚔️ スロット 1</label>
-                <select id="slot-0" class="slot-select">
-                    <option value="グー">✊ グー</option>
-                    <option value="チョキ">✌️ チョキ</option>
-                    <option value="パー">🖐️ パー</option>
-                </select>
-            </div>
-            <div class="slot-container">
-                <label>⚔️ スロット 2</label>
-                <select id="slot-1" class="slot-select">
-                    <option value="グー">✊ グー</option>
-                    <option value="チョキ" selected>✌️ チョキ</option>
-                    <option value="パー">🖐️ パー</option>
-                </select>
-            </div>
-            <div class="slot-container">
-                <label>⚔️ スロット 3</label>
-                <select id="slot-2" class="slot-select">
-                    <option value="グー">✊ グー</option>
-                    <option value="チョキ">✌️ チョキ</option>
-                    <option value="パー" selected>🖐️ パー</option>
-                </select>
-            </div>
-            <div class="slot-container">
-                <label>🎒 使用アイテム (消費)</label>
-                <select id="item-select" class="slot-select" onchange="onItemSelectChange()">
-                    <option value="">なし</option>
-                    <option value="telescope">望遠鏡 (0)</option>
-                    <option value="spiderweb">クモの糸 (0)</option>
-                    <option value="atkBook">攻撃の書 (0)</option>
-                    <option value="hpBook">体力の書 (0)</option>
-                    <option value="shoes">いだてんの靴 (0)</option>
-                </select>
-            </div>
+            <div class="slot-container"><label>⚔️ スロット 1</label><select id="slot-0" class="slot-select"><option value="グー">✊ グー</option><option value="チョキ">✌️ チョキ</option><option value="パー">🖐️ パー</option></select></div>
+            <div class="slot-container"><label>⚔️ スロット 2</label><select id="slot-1" class="slot-select"><option value="グー">✊ グー</option><option value="チョキ" selected>✌️ チョキ</option><option value="パー">🖐️ パー</option></select></div>
+            <div class="slot-container"><label>⚔️ スロット 3</label><select id="slot-2" class="slot-select"><option value="グー">✊ グー</option><option value="チョキ">✌️ チョキ</option><option value="パー" selected>🖐️ パー</option></select></div>
+            <div class="slot-container"><label>🎒 使用アイテム</label><select id="item-select" class="slot-select" onchange="onItemSelectChange()"><option value="">なし</option><option value="telescope">望遠鏡</option><option value="spiderweb">クモの糸</option><option value="atkBook">攻撃の書</option><option value="hpBook">体力の書</option><option value="shoes">いだてんの靴</option></select></div>
         </div>
 
         <div id="actual-build-inputs" style="margin-top: 25px;">
@@ -357,7 +284,7 @@
             <div class="p-char-area">
                 <div id="p-avatar-box"><img src="char_1.png" class="battle-char-img" id="p-img"></div>
                 <div class="char-name" id="p-name">プレイヤー</div>
-                <div class="hp-bar-bg"><div class="hp-bar-fill" id="p-hp-bar"></div></div>
+                <div class="hp-bar-bg"><div class="hp-bar-fill" id="p-hp-bar" style="background:var(--success-color)"></div></div>
                 <div>HP: <span id="p-hp">100</span> / <span id="p-maxhp">100</span></div>
                 <div class="char-trait" id="p-trait-desc">特性: ---</div>
             </div>
@@ -393,7 +320,6 @@
         <h2 id="result-title" style="font-size: 2.5em; margin-bottom: 10px;">結果発表</h2>
         <p id="gold-reward-msg" style="font-size: 1.2em; font-weight: bold; color: #d4af37;"></p>
         <div id="unlock-area" style="margin: 20px 0; padding: 15px; background: #e6fffa; border: 1px solid #319795; color: #234e52; border-radius: 8px; font-weight: bold;" class="hidden"></div>
-        
         <div class="title-menu-container" style="margin-top: 30px;">
             <button class="action-btn btn-start" id="retry-btn" onclick="switchScreen('select-screen')">もう一度戦う 🔄</button>
             <button class="action-btn btn-back" style="width:280px; padding:12px;" onclick="quitToTitle()">タイトルに戻る 🚪</button>
@@ -402,10 +328,9 @@
 
     <div id="gacha-screen" class="screen hidden">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px;">
-            <h2>キャラクターガチャ</h2>
-            <button class="action-btn btn-back" onclick="switchScreen('title-screen')">戻る</button>
+            <h2>キャラクターガチャ</h2><button class="action-btn btn-back" onclick="switchScreen('title-screen')">戻る</button>
         </div>
-        <p>1回 <strong>200 G</strong> でまだ持っていないキャラがランダムに1人解放されます！</p>
+        <p>1回 <strong>200 G</strong> で未所持キャラ解放！</p>
         <div class="gacha-box">
             <div class="gacha-result-animation" id="gacha-anim">
                 <span class="gacha-anim-text" id="gacha-anim-text">🎰</span>
@@ -417,45 +342,44 @@
 
     <div id="shop-screen" class="screen hidden">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px;">
-            <h2>アイテムショップ & 所持品確認</h2>
-            <button class="action-btn btn-back" onclick="switchScreen('title-screen')">戻る</button>
+            <h2>アイテムショップ</h2><button class="action-btn btn-back" onclick="switchScreen('title-screen')">戻る</button>
         </div>
-        
         <div class="item-market">
-            <div class="item-card">
-                <strong>🔭 望遠鏡</strong> (150G)<br>
-                <span style="font-size:0.85em; color:#666;">最初のターンのカウントダウンが15秒になり、じっくり選べる。</span><br>
-                <span style="color:var(--primary-color); font-weight:bold;">所持: <span id="inv-telescope">0</span></span>
-                <button class="action-btn btn-back" style="width:100%; background:var(--warning-color);" onclick="buyItem('telescope', 150)">購入する</button>
-            </div>
-            <div class="item-card">
-                <strong>🕸️ クモの糸</strong> (100G)<br>
-                <span style="font-size:0.85em; color:#666;">相手の最初のカウントダウン速度を2倍速（5秒）にする。</span><br>
-                <span style="color:var(--primary-color); font-weight:bold;">所持: <span id="inv-spiderweb">0</span></span>
-                <button class="action-btn btn-back" style="width:100%; background:var(--warning-color);" onclick="buyItem('spiderweb', 100)">購入する</button>
-            </div>
-            <div class="item-card">
-                <strong>📕 攻撃 of 書</strong> (200G)<br>
-                <span style="font-size:0.85em; color:#666;">最初のターン、勝利時の基本ダメージが+15される。</span><br>
-                <span style="color:var(--primary-color); font-weight:bold;">所持: <span id="inv-atkBook">0</span></span>
-                <button class="action-btn btn-back" style="width:100%; background:var(--warning-color);" onclick="buyItem('atkBook', 200)">購入する</button>
-            </div>
-            <div class="item-card">
-                <strong>📘 体力 of 書</strong> (200G)<br>
-                <span style="font-size:0.85em; color:#666;">HPが0になるダメージを受けた時、1度だけHP1で耐える。</span><br>
-                <span style="color:var(--primary-color); font-weight:bold;">所持: <span id="inv-hpBook">0</span></span>
-                <button class="action-btn btn-back" style="width:100%; background:var(--warning-color);" onclick="buyItem('hpBook', 200)">購入する</button>
-            </div>
-            <div class="item-card">
-                <strong>👟 いだてんの靴</strong> (120G)<br>
-                <span style="font-size:0.85em; color:#666;">装備キャラクターの素早さ(SPD)が常時+30される。</span><br>
-                <span style="color:var(--primary-color); font-weight:bold;">所持: <span id="inv-shoes">0</span></span>
-                <button class="action-btn btn-back" style="width:100%; background:var(--warning-color);" onclick="buyItem('shoes', 120)">購入する</button>
-            </div>
+            <div class="item-card"><strong>🔭 望遠鏡</strong> (150G)<br><span style="color:var(--primary-color);">所持: <span id="inv-telescope">0</span></span><button class="action-btn btn-back" style="width:100%; background:var(--warning-color); margin-top:10px;" onclick="buyItem('telescope', 150)">購入</button></div>
+            <div class="item-card"><strong>🕸️ クモの糸</strong> (100G)<br><span style="color:var(--primary-color);">所持: <span id="inv-spiderweb">0</span></span><button class="action-btn btn-back" style="width:100%; background:var(--warning-color); margin-top:10px;" onclick="buyItem('spiderweb', 100)">購入</button></div>
+            <div class="item-card"><strong>📕 攻撃 of 書</strong> (200G)<br><span style="color:var(--primary-color);">所持: <span id="inv-atkBook">0</span></span><button class="action-btn btn-back" style="width:100%; background:var(--warning-color); margin-top:10px;" onclick="buyItem('atkBook', 200)">購入</button></div>
+            <div class="item-card"><strong>📘 体力 of 書</strong> (200G)<br><span style="color:var(--primary-color);">所持: <span id="inv-hpBook">0</span></span><button class="action-btn btn-back" style="width:100%; background:var(--warning-color); margin-top:10px;" onclick="buyItem('hpBook', 200)">購入</button></div>
+            <div class="item-card"><strong>👟 いだてんの靴</strong> (120G)<br><span style="color:var(--primary-color);">所持: <span id="inv-shoes">0</span></span><button class="action-btn btn-back" style="width:100%; background:var(--warning-color); margin-top:10px;" onclick="buyItem('shoes', 120)">購入</button></div>
         </div>
     </div>
 
     <script>
+        // --- ⚙️ FIREBASE設定エリア ---
+        // 先に定義を置いておくことでエラーを完全に防ぎます
+        const firebaseConfig = {
+            apiKey: "AIzaSyA5UsxVKXjwUJfdmpUc5WLDofkdkw3iouM",
+  authDomain: "rakkuru-game.firebaseapp.com",
+  databaseURL: "https://rakkuru-game-default-rtdb.firebaseio.com",
+  projectId: "rakkuru-game",
+  storageBucket: "rakkuru-game.firebasestorage.app",
+  messagingSenderId: "132324630565",
+  appId: "1:132324630565:web:89e5c957078e6fadcb5fcc",
+  measurementId: "G-1W7PFYKCX9"
+        };
+
+        // Firebase初期化の安全判定
+        let database = null;
+        let isFirebaseAvailable = false;
+        if (typeof firebase !== 'undefined' && firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+            try {
+                firebase.initializeApp(firebaseConfig);
+                database = firebase.database();
+                isFirebaseAvailable = true;
+            } catch (e) {
+                console.error("Firebaseの初期化に失敗しました。ソロモードのみ動作します:", e);
+            }
+        }
+
         // キャラクターデータベース
         const CHARACTERS = [
             { id: 1, name: "ガイ", hp: 130, atk: 25, spd: 10, image: "char_1.png", trait: "guyDebuff", traitDesc: "グーで負けた場合攻撃を-30する。" },
@@ -476,49 +400,44 @@
             { id: 16, name: "フロリエル", hp: 110, atk: 20, spd: 11, image: "char_16.png", trait: "turnHealFive", traitDesc: "毎ターン開始時にHPを5回復する" }
         ];
 
-        // じゃんけん画像マッピング
-        const JANKEN_IMAGES = {
-            "パー": "janken1.png",
-            "チョキ": "janken2.png",
-            "グー": "janken3.png"
-        };
+        const JANKEN_IMAGES = { "パー": "janken1.png", "チョキ": "janken2.png", "グー": "janken3.png" };
 
         let unlockedIds = JSON.parse(localStorage.getItem('luckl_unlocked')) || [1]; 
         let userGold = parseInt(localStorage.getItem('luckl_gold')) || 0;
-        let inventory = JSON.parse(localStorage.getItem('luckl_inventory')) || {
-            telescope: 0, spiderweb: 0, atkBook: 0, hpBook: 0, shoes: 0
-        };
+        let inventory = JSON.parse(localStorage.getItem('luckl_inventory')) || { telescope: 0, spiderweb: 0, atkBook: 0, hpBook: 0, shoes: 0 };
+        let profileName = localStorage.getItem('luckl_profile_name') || "プレイヤー";
 
         let isOnlineMode = false;
-        let peer = null;
-        let conn = null;
+        let currentRoomId = null;
+        let myRole = null; 
+        let roomRef = null;
 
         let selectedCharId = 1; 
-        let playerChar = null;
-        let enemyChar = null;
-        let playerHp = 100;
-        let enemyHp = 100;
-        let playerHand = [];
-        let enemyHand = [];
-        let currentTurn = 1;
-        
-        let chosenItemKey = ""; 
-        let timerInterval = null;
-        let timeLeft = 30;
+        let playerChar = null; let enemyChar = null;
+        let playerHp = 100; let enemyHp = 100;
+        let playerHand = []; let enemyHand = [];
+        let currentTurn = 0; let chosenItemKey = ""; 
+        let timerInterval = null; let timeLeft = 30;
         let isFirstTurn = true;
-        let playerGritTriggered = false;
-        let enemyGritTriggered = false;
+        let playerGritTriggered = false; let enemyGritTriggered = false;
+        let pLockedCardIdx = -1; let eLockedCardIdx = -1;
+        let pDisabledCardName = "";
+        let eDisabledCardName = "";
 
         let playerBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: 0 };
         let enemyBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: 0 };
 
-        let mySelectedCardData = null;
-        let opponentSelectedCardData = null;
-
         window.onload = function() {
+            document.getElementById("player-profile-name").value = profileName;
             updateGoldDisplay();
             updateShopInventoryDisplay();
         };
+
+        function saveProfileName() {
+            const val = document.getElementById("player-profile-name").value.trim();
+            profileName = val || "プレイヤー";
+            localStorage.setItem('luckl_profile_name', profileName);
+        }
 
         function switchScreen(screenId) {
             document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
@@ -534,7 +453,6 @@
             localStorage.setItem('luckl_gold', userGold);
         }
 
-        /* --- モード切り替え --- */
         function startSinglePlayerSetup() {
             isOnlineMode = false;
             document.getElementById("select-screen-title").innerText = "バトル構成・キャラクター選択 (ソロ)";
@@ -545,6 +463,10 @@
         }
 
         function startOnlineSetup() {
+            if (!isFirebaseAvailable) {
+                alert("Firebaseの設定（Config）が完了していないため、オンライン対戦は利用できません。コード内のfirebaseConfigを設定してください。");
+                return;
+            }
             isOnlineMode = true;
             document.getElementById("select-screen-title").innerText = "バトル構成・キャラクター選択 (オンライン)";
             document.getElementById("online-connection-panel").classList.remove("hidden");
@@ -555,109 +477,121 @@
         }
 
         function cancelSetup() {
-            closePeerConnection();
+            leaveFirebaseRoom();
             switchScreen('title-screen');
         }
 
-        function closePeerConnection() {
-            if (peer) { peer.destroy(); peer = null; }
-            conn = null;
+        function leaveFirebaseRoom() {
+            if (roomRef) {
+                roomRef.off();
+                if (myRole === "host") {
+                    roomRef.remove(); 
+                } else if (myRole === "guest") {
+                    roomRef.child("guestName").set("");
+                    roomRef.child("guestReady").set(false);
+                }
+                roomRef = null;
+            }
+            currentRoomId = null; myRole = null;
         }
 
-        /* --- 部屋番号システム（PeerJSネットワーク処理） --- */
-        
-        // 1. 部屋を作る人（ホスト側）
         function createOnlineRoom() {
+            if (!isFirebaseAvailable) return;
             const roomNum = document.getElementById("create-room-number").value.trim();
             if (!roomNum) return alert("部屋番号を入力してください。");
-            
-            closePeerConnection();
-            document.getElementById("connection-status-text").innerText = `接続状態: 部屋番号「${roomNum}」を作成中...`;
+            leaveFirebaseRoom();
 
-            // 部屋番号をPeerIDに直接指定して初期化
-            peer = new Peer("luckl-room-" + roomNum);
-            
-            peer.on('open', (id) => {
-                document.getElementById("connection-status-text").innerText = `接続状態: 部屋「${roomNum}」を作成しました！相手の入室を待っています...`;
-            });
+            myRole = "host";
+            currentRoomId = roomNum;
+            roomRef = database.ref("rooms/" + currentRoomId);
 
-            peer.on('connection', (connection) => {
-                if (conn) { connection.close(); return; } // すでに接続があれば弾く
-                conn = connection;
-                setupConnectionEvents();
-            });
+            document.getElementById("connection-status-text").innerText = `部屋「${roomNum}」を作成中...`;
 
-            peer.on('error', (err) => {
-                if (err.type === 'unavailable-id') {
-                    alert("その部屋番号はすでに使われています。別の番号にしてください。");
-                } else {
-                    alert("部屋の作成に失敗しました: " + err.type);
-                }
-                document.getElementById("connection-status-text").innerText = "接続状態: エラーにより未接続";
+           　roomRef.set({
+                hostName: profileName, hostReady: false, hostCard: "", hostCardIdx: -1,
+                guestName: "", guestReady: false, guestCard: "", guestCardIdx: -1,
+                gameStarted: false, currentTurn: 0, pLockedCardIdx: -1, eLockedCardIdx: -1,
+                pDisabledCardName: "", eDisabledCardName: ""
+            }).then(() => {
+                document.getElementById("connection-status-text").innerText = `🏠 部屋「${roomNum}」を作成しました。相手の入室を待っています...`;
+                setupRoomListener();
             });
         }
 
-        // 2. 部屋に入る人（ゲスト側）
         function joinOnlineRoom() {
+            if (!isFirebaseAvailable) return;
             const roomNum = document.getElementById("join-room-number").value.trim();
             if (!roomNum) return alert("部屋番号を入力してください。");
+            leaveFirebaseRoom();
 
-            closePeerConnection();
-            document.getElementById("connection-status-text").innerText = `接続状態: 部屋「${roomNum}」を探しています...`;
+            myRole = "guest";
+            currentRoomId = roomNum;
+            roomRef = database.ref("rooms/" + currentRoomId);
 
-            // ゲスト側はランダムIDで初期化してから、指定の部屋ID（ホスト）に接続を試みる
-            peer = new Peer();
-            
-            peer.on('open', (id) => {
-                conn = peer.connect("luckl-room-" + roomNum);
-                setupConnectionEvents();
-            });
+            document.getElementById("connection-status-text").innerText = `部屋「${roomNum}」を探しています...`;
 
-            peer.on('error', (err) => {
-                alert("通信エラーが発生しました: " + err.type);
-                document.getElementById("connection-status-text").innerText = "接続状態: エラーにより未接続";
-            });
-        }
-
-        // 共通の接続イベントハンドラ
-        function setupConnectionEvents() {
-            conn.on('open', () => {
-                document.getElementById("connection-status-text").innerText = "接続状態: 部屋への接続完了！相互通信中 🟢";
-                document.getElementById("main-fight-btn").innerText = "構成を送信してバトル開始！";
-                document.getElementById("main-fight-btn").disabled = false;
-            });
-
-            conn.on('data', (data) => {
-                handleNetworkMessage(data);
-            });
-
-            conn.on('close', () => {
-                alert("対戦相手との接続が切断されました。");
-                quitToTitle();
+            roomRef.once("value").then(snapshot => {
+                if (!snapshot.exists()) {
+                    alert("指定された部屋が見つかりません。");
+                    document.getElementById("connection-status-text").innerText = "接続状態: エラー（部屋なし）";
+                    return;
+                }
+                roomRef.update({
+                    guestName: profileName,
+                    guestReady: false
+                }).then(() => {
+                    document.getElementById("connection-status-text").innerText = `🚪 部屋「${roomNum}」に入室しました！構成を決定してください。`;
+                    setupRoomListener();
+                });
             });
         }
 
-        // 受信データ振り分け
-        function handleNetworkMessage(data) {
-            switch(data.type) {
-                case "START_BUILD":
-                    enemyChar = data.char;
-                    enemyHand = data.hand;
-                    enemyHp = enemyChar.hp;
-                    enemyChar.maxHp = enemyChar.hp;
-                    
-                    logMessage(`相手がオンラインに参戦しました: ${enemyChar.name}`);
-                    checkAndLaunchOnlineBattle();
-                    break;
+        function setupRoomListener() {
+            if (!isFirebaseAvailable || !roomRef) return;
+            roomRef.on("value", snapshot => {
+                const data = snapshot.val();
+                if (!data) return;
 
-                case "SUBMIT_CARD":
-                    opponentSelectedCardData = data;
-                    checkAndExecuteOnlineTurn();
-                    break;
-            }
+                if (myRole === "host" && data.guestName && !data.gameStarted) {
+                    document.getElementById("connection-status-text").innerText = `🟢 相手 (${data.guestName}) が入室しました！構成を選んで決定してください。`;
+                    document.getElementById("main-fight-btn").innerText = "構成を送信して準備完了！";
+                    document.getElementById("main-fight-btn").disabled = false;
+                }
+                if (myRole === "guest" && !data.gameStarted) {
+                    document.getElementById("main-fight-btn").innerText = "構成を送信して準備完了！";
+                    document.getElementById("main-fight-btn").disabled = false;
+                }
+
+                if (data.hostReady && data.guestReady && !data.gameStarted && myRole === "host") {
+                    roomRef.child("gameStarted").set(true);
+                }
+
+                if (data.gameStarted && currentTurn === 0) {
+                    currentTurn = 1; 
+                    enemyChar = JSON.parse(JSON.stringify(myRole === "host" ? data.guestChar : data.hostChar));
+                    enemyHand = myRole === "host" ? data.guestHand : data.hostHand;
+                    launchBattleView();
+                }
+
+                if (data.gameStarted && currentTurn > 0) {
+                    pLockedCardIdx = data.pLockedCardIdx !== undefined ? data.pLockedCardIdx : -1;
+                    eLockedCardIdx = data.eLockedCardIdx !== undefined ? data.eLockedCardIdx : -1;
+                    pDisabledCardName = data.pDisabledCardName !== undefined ? data.pDisabledCardName : "";
+                    eDisabledCardName = data.eDisabledCardName !== undefined ? data.eDisabledCardName : "";
+
+                    const myCard = myRole === "host" ? data.hostCard : data.guestCard;
+                    const opCard = myRole === "host" ? data.guestCard : data.hostCard;
+                    const myCardIdx = myRole === "host" ? data.hostCardIdx : data.guestCardIdx;
+                    const opCardIdx = myRole === "host" ? data.guestCardIdx : data.hostCardIdx;
+
+                    if (myCard && opCard) {
+                        roomRef.update({ hostCard: "", guestCard: "", hostCardIdx: -1, guestCardIdx: -1 });
+                        executeTurnResolve(myCard, myCardIdx, opCard, opCardIdx);
+                    }
+                }
+            });
         }
 
-        /* --- キャラ・ビルド構築 --- */
         function renderCharacterList() {
             const grid = document.getElementById("char-selection-grid");
             grid.innerHTML = "";
@@ -666,16 +600,13 @@
                 const card = document.createElement("div");
                 card.className = `char-card ${!isUnlocked ? 'locked' : ''} ${selectedCharId === c.id && isUnlocked ? 'selected' : ''}`;
                 card.innerHTML = `
-                    <img src="${c.image}" class="char-img" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'80\' height=\'80\'><circle cx=\'40\' cy=\'40\' r=\'40\' fill=\'%23ccc\'/><text x=\'40\' y=\'45\' font-size=\'12\' text-anchor=\'middle\' fill=\'%23666\'>No Img</text></svg>'">
+                    <img src="${c.image}" class="char-img" onerror="this.src='data:image/svg+xml;utf8,<svg width=\'80\' height=\'80\'><circle cx=\'40\' cy=\'40\' r=\'40\' fill=\'%23ccc\'/></svg>'">
                     <div class="char-name">${c.name} ${!isUnlocked ? '🔒' : ''}</div>
                     <div class="char-stats">HP: ${c.hp} | ATK: ${c.atk} | SPD: ${c.spd}</div>
                     <div class="char-trait">${c.traitDesc}</div>
                 `;
                 if (isUnlocked) {
-                    card.onclick = () => {
-                        selectedCharId = c.id;
-                        renderCharacterList();
-                    };
+                    card.onclick = () => { selectedCharId = c.id; renderCharacterList(); };
                 }
                 grid.appendChild(card);
             });
@@ -683,11 +614,13 @@
 
         function updateItemSelectOptions() {
             const select = document.getElementById("item-select");
-            select.options[1].text = `望遠鏡 (${inventory.telescope})`;
-            select.options[2].text = `クモの糸 (${inventory.spiderweb})`;
-            select.options[3].text = `攻撃の書 (${inventory.atkBook})`;
-            select.options[4].text = `体力の書 (${inventory.hpBook})`;
-            select.options[5].text = `いだてんの靴 (${inventory.shoes})`;
+            if(select && select.options.length > 5) {
+                select.options[1].text = `望遠鏡 (${inventory.telescope})`;
+                select.options[2].text = `クモの糸 (${inventory.spiderweb})`;
+                select.options[3].text = `攻撃の書 (${inventory.atkBook})`;
+                select.options[4].text = `体力の書 (${inventory.hpBook})`;
+                select.options[5].text = `いだてんの靴 (${inventory.shoes})`;
+            }
         }
 
         function onItemSelectChange() {
@@ -701,7 +634,6 @@
             }
         }
 
-        /* --- バトル開始 --- */
         function confirmAndStartBattle() {
             const baseChar = CHARACTERS.find(c => c.id === selectedCharId);
             if (!baseChar) return;
@@ -714,7 +646,9 @@
             ];
             playerHp = playerChar.hp;
             playerChar.maxHp = playerChar.hp;
-            currentTurn = 1; 
+            currentTurn = 0; 
+            pLockedCardIdx = -1;
+            eLockedCardIdx = -1;
 
             playerBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: 0 };
             enemyBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: 0 };
@@ -731,17 +665,27 @@
             playerChar.item = usedItem;
 
             if (isOnlineMode) {
-                if (!conn) return alert("通信相手と接続されていません。");
-                conn.send({
-                    type: "START_BUILD",
-                    char: playerChar,
-                    hand: playerHand
-                });
-                document.getElementById("main-fight-btn").innerText = "相手のデータ選択を待っています...";
+                if (!isFirebaseAvailable || !roomRef) return alert("部屋に接続されていません。");
+                
+                document.getElementById("main-fight-btn").innerText = "相手の準備完了を待っています...";
                 document.getElementById("main-fight-btn").disabled = true;
-                checkAndLaunchOnlineBattle();
+
+                if (myRole === "host") {
+                    roomRef.update({
+                        hostChar: playerChar,
+                        hostHand: playerHand,
+                        hostReady: true
+                    });
+                } else {
+                    roomRef.update({
+                        guestChar: playerChar,
+                        guestHand: playerHand,
+                        guestReady: true
+                    });
+                }
             } else {
                 setupSinglePlayerEnemy();
+                currentTurn = 1; 
                 launchBattleView();
             }
         }
@@ -754,17 +698,7 @@
             enemyChar.item = "none";
 
             const rOpts = ["グー", "チョキ", "パー"];
-            enemyHand = [
-                rOpts[Math.floor(Math.random() * 3)],
-                rOpts[Math.floor(Math.random() * 3)],
-                rOpts[Math.floor(Math.random() * 3)]
-            ];
-        }
-
-        function checkAndLaunchOnlineBattle() {
-            if (playerChar && enemyChar) {
-                launchBattleView();
-            }
+            enemyHand = [rOpts[Math.floor(Math.random() * 3)], rOpts[Math.floor(Math.random() * 3)], rOpts[Math.floor(Math.random() * 3)]];
         }
 
         function launchBattleView() {
@@ -772,14 +706,14 @@
             document.getElementById("battle-mode-title").innerText = isOnlineMode ? "オンライン対戦中" : "AI対戦中 🤖";
             
             document.getElementById("p-img").src = playerChar.image;
-            document.getElementById("p-name").innerText = playerChar.name;
+            document.getElementById("p-name").innerText = profileName;
             document.getElementById("p-maxhp").innerText = playerChar.maxHp;
             document.getElementById("p-trait-desc").innerText = "特性: " + playerChar.traitDesc;
-            document.getElementById("p-item-badge").innerText = playerChar.item && playerChar.item !== "none" ? `🎒 使用中: ${playerChar.item}` : "🎒 アイテムなし";
+            document.getElementById("p-item-badge").innerText = playerChar.item !== "none" ? `🎒 使用中: ${playerChar.item}` : "🎒 アイテムなし";
             document.getElementById("p-played-card").innerHTML = "";
 
             document.getElementById("e-img").src = enemyChar.image;
-            document.getElementById("e-name").innerText = isOnlineMode ? enemyChar.name : enemyChar.name + " (AI)";
+            document.getElementById("e-name").innerText = isOnlineMode ? (myRole === "host" ? "ゲストプレイヤー" : "ホストプレイヤー") : enemyChar.name + " (AI)";
             document.getElementById("e-maxhp").innerText = enemyChar.maxHp;
             document.getElementById("e-trait-desc").innerText = "特性: " + enemyChar.traitDesc;
             document.getElementById("e-played-card").innerHTML = "";
@@ -787,11 +721,13 @@
             isFirstTurn = true;
             playerGritTriggered = false;
             enemyGritTriggered = false;
-            mySelectedCardData = null;
-            opponentSelectedCardData = null;
+            pDisabledCardName = "";
+            eDisabledCardName = "";
 
-            document.getElementById("log-box").innerHTML = "バトル開始！手札から出すカードを選択してください。";
+            document.getElementById("log-box").innerHTML = "バトル開始！手札を選んでください。";
             
+            playerHp = playerChar.maxHp;
+            enemyHp = enemyChar.maxHp;
             syncHpUI();
             renderHandButtons();
             startTurnTimer();
@@ -807,9 +743,18 @@
         function renderHandButtons() {
             const container = document.getElementById("player-hand-ui");
             container.innerHTML = "";
+            
+            const myLockIdx = (myRole === "host") ? pLockedCardIdx : eLockedCardIdx;
+            // 👇 自分がホストなら pDisabledCardName、ゲストなら eDisabledCardName が自分の禁止カード
+            const myDisabledName = (myRole === "host") ? pDisabledCardName : eDisabledCardName;
+
             playerHand.forEach((handName, idx) => {
                 const btn = document.createElement("button");
                 btn.className = "card-btn";
+                // 👇 スロットロック、または今回の「使ったカード名」に一致すれば赤色（ロック）にする
+                if (idx === myLockIdx || handName === myDisabledName) {
+                    btn.classList.add("locked-card");
+                }
                 btn.innerHTML = `<img src="${JANKEN_IMAGES[handName]}"> ${handName}`;
                 btn.onclick = () => selectHandAction(idx);
                 container.appendChild(btn);
@@ -829,7 +774,6 @@
                 if (playerChar.item === "telescope") timeLeft = 45; 
                 if (enemyChar.item === "spiderweb") timeLeft = 15; 
             }
-            
             document.getElementById("turn-timer").innerText = `⏱️ ${timeLeft}`;
 
             timerInterval = setInterval(() => {
@@ -842,38 +786,44 @@
             }, 1000);
         }
 
-        function selectHandAction(idx) {
-            clearInterval(timerInterval);
-            document.querySelectorAll(".card-btn").forEach(b => b.disabled = true);
-            
+       　function selectHandAction(idx) {
+            const myLockIdx = (myRole === "host") ? pLockedCardIdx : eLockedCardIdx;
+            // 自分がホストなら pDisabledCardName、ゲストなら eDisabledCardName が自分の禁止カード
+            const myDisabledName = (myRole === "host") ? pDisabledCardName : eDisabledCardName;
+            // ここで1回だけ宣言します
             const chosenHand = playerHand[idx];
 
+            if (idx === myLockIdx) {
+                alert("このスロットのカードはロックされています！別のカードを選んでください。");
+                return;
+            }
+            
+            // 禁止カードを選ぼうとしたら警告を出して処理を中断する
+            if (chosenHand === myDisabledName) {
+                alert(`「${chosenHand}」は前のターンに使ったため、このターンは連続で使用できません！`);
+                return;
+            }
+
+            clearInterval(timerInterval);
+            document.querySelectorAll(".card-btn").forEach(b => b.disabled = true);
+
             if (isOnlineMode) {
-                mySelectedCardData = { hand: chosenHand, index: idx };
-                conn.send({
-                    type: "SUBMIT_CARD",
-                    hand: chosenHand,
-                    index: idx
-                });
                 logMessage("あなたの選択完了。相手の決定を待っています...");
-                checkAndExecuteOnlineTurn();
+                if (myRole === "host") {
+                    roomRef.update({ hostCard: chosenHand, hostCardIdx: idx });
+                } else {
+                    roomRef.update({ guestCard: chosenHand, guestCardIdx: idx });
+                }
             } else {
-                const aiIdx = Math.floor(Math.random() * 3);
+                const aiLockIdx = eLockedCardIdx;
+                let aiIdx = Math.floor(Math.random() * 3);
+                // スロットロックされている、または禁止されているカード名である間は引き直す
+                while (aiIdx === aiLockIdx || enemyHand[aiIdx] === eDisabledCardName) { 
+                    aiIdx = Math.floor(Math.random() * 3); 
+                }
+
                 const aiHand = enemyHand[aiIdx];
                 executeTurnResolve(chosenHand, idx, aiHand, aiIdx);
-            }
-        }
-
-        function checkAndExecuteOnlineTurn() {
-            if (mySelectedCardData && opponentSelectedCardData) {
-                executeTurnResolve(
-                    mySelectedCardData.hand, 
-                    mySelectedCardData.index, 
-                    opponentSelectedCardData.hand, 
-                    opponentSelectedCardData.index
-                );
-                mySelectedCardData = null;
-                opponentSelectedCardData = null;
             }
         }
 
@@ -887,21 +837,19 @@
             return 'enemy';
         }
 
-        /* --- ターン結果判定・ロジック --- */
-        function executeTurnResolve(pHand, pIdx, eHand, eIdx) {
+        function executeTurnResolve(myHandStr, myIdx, opHandStr, opIdx) {
             document.getElementById("log-box").innerHTML = `【ターン ${currentTurn}】`;
             
+            const pHand = myRole === "guest" ? opHandStr : myHandStr;
+            const eHand = myRole === "guest" ? myHandStr : opHandStr;
+            const pIdxReal = myRole === "guest" ? opIdx : myIdx;
+            const eIdxReal = myRole === "guest" ? myIdx : opIdx;
+
             document.getElementById("p-played-card").innerHTML = `<img src="${JANKEN_IMAGES[pHand]}" class="battle-hand-img">`;
             document.getElementById("e-played-card").innerHTML = `<img src="${JANKEN_IMAGES[eHand]}" class="battle-hand-img">`;
 
-            if (playerChar.trait === "turnHealFive") {
-                playerHp = Math.min(playerChar.maxHp, playerHp + 5);
-                logMessage("フロリエル：HP5回復。");
-            }
-            if (enemyChar.trait === "turnHealFive") {
-                enemyHp = Math.min(enemyChar.maxHp, enemyHp + 5);
-                logMessage("相手のフロリエル：HP5回復。");
-            }
+            if (playerChar.trait === "turnHealFive") { playerHp = Math.min(playerChar.maxHp, playerHp + 5); logMessage("フロリエル：HP5回復。"); }
+            if (enemyChar.trait === "turnHealFive") { enemyHp = Math.min(enemyChar.maxHp, enemyHp + 5); logMessage("相手のフロリエル：HP5回復。"); }
             if (playerChar.trait === "shadowSpeed") { playerChar.spd += 5; logMessage("シャドウ：SPD5上昇。"); }
             if (enemyChar.trait === "shadowSpeed") { enemyChar.spd += 5; logMessage("相手のシャドウ：SPD5上昇。"); }
 
@@ -913,33 +861,42 @@
             let nextPlayerBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: playerBuffs.winStreak };
             let nextEnemyBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: enemyBuffs.winStreak };
 
+            let nextPLockedCardIdx = -1;
+            let nextELockedCardIdx = -1;
+
             if (result === 'player') {
                 playerBuffs.winStreak++; enemyBuffs.winStreak = 0;
                 if (enemyDodged) { logMessage("相手は攻撃を回避した！"); }
                 else {
                     eDmg = calculateDamage(pHand, playerChar, enemyChar, isFirstTurn, playerBuffs, eHand);
-                    if (playerChar.trait === "doubleWinForce" && playerBuffs.winStreak >= 2) { eDmg = enemyHp; logMessage("グレイヴ：2連勝により強制勝利！"); }
+                    if (playerChar.trait === "doubleWinForce" && playerBuffs.winStreak >= 2) { eDmg = enemyHp; logMessage("グレイヴ：強制勝利！"); }
                     logMessage(`あなたの勝利！ ${eDmg} のダメージ！`);
                     if (pHand === "パー" && playerChar.trait === "silvaHeal") { playerHp = Math.min(playerChar.maxHp, playerHp + 30); logMessage("シルヴァ：HP30回復。"); }
-                    if (pHand === "パー" && playerChar.trait === "valxDouble") { nextPlayerBuffs.nextAtkMult = 2; logMessage("ヴァルクス：次ターンのATK2倍。"); }
-                    if (pHand === "グー" && playerChar.trait === "ironNextDebuff") { nextPlayerBuffs.ironDebuffed = true; logMessage("アイアン：相手の次ターンATK半減デバフ。"); }
+                    if (pHand === "パー" && playerChar.trait === "valxDouble") { nextPlayerBuffs.nextAtkMult = 2; logMessage("ヴァルクス：次ATK2倍。"); }
+                    if (pHand === "グー" && playerChar.trait === "ironNextDebuff") { 
+                        nextPlayerBuffs.ironDebuffed = true; 
+                        nextELockedCardIdx = eIdxReal; 
+                        logMessage("アイアン：相手の次ターンATK半減 ＆ スロットロック！"); 
+                    }
                 }
                 if (!enemyDodged && eDmg > 0) { nextEnemyBuffs.revengeAtkMult = 1.5; }
             } else if (result === 'enemy') {
                 enemyBuffs.winStreak++; playerBuffs.winStreak = 0;
-                if (playerDodged) { logMessage("カゲマル：相手の攻撃を完全回避！"); }
+                if (playerDodged) { logMessage("カゲマル：完全回避！"); }
                 else {
                     pDmg = calculateDamage(eHand, enemyChar, playerChar, isFirstTurn, enemyBuffs, pHand);
-                    if (enemyChar.trait === "doubleWinForce" && enemyBuffs.winStreak >= 2) { pDmg = playerHp; logMessage("相手のグレイヴ：2連勝による強制勝利！"); }
+                    if (enemyChar.trait === "doubleWinForce" && enemyBuffs.winStreak >= 2) { pDmg = playerHp; logMessage("相手のグレイヴ：強制勝利！"); }
                     logMessage(`あなたの敗北... ${pDmg} のダメージを受けました。`);
                     if (eHand === "パー" && enemyChar.trait === "silvaHeal") { enemyHp = Math.min(enemyChar.maxHp, enemyHp + 30); logMessage("相手のシルヴァ：HP30回復。"); }
                     if (eHand === "パー" && enemyChar.trait === "valxDouble") { nextEnemyBuffs.nextAtkMult = 2; logMessage("相手のヴァルクス：次ATK2倍。"); }
-                    if (eHand === "グー" && enemyChar.trait === "ironNextDebuff") { nextEnemyBuffs.ironDebuffed = true; logMessage("相手のアイアン：あなたの次ATK半減。"); }
+                    if (eHand === "グー" && enemyChar.trait === "ironNextDebuff") { 
+                        nextEnemyBuffs.ironDebuffed = true; 
+                        nextPLockedCardIdx = pIdxReal; 
+                        logMessage("相手のアイアン：あなたの次ATK半減 ＆ スロットロック！"); 
+                    }
                 }
-                if (pHand === "グー" && playerChar.trait === "guyDebuff") { nextPlayerBuffs.guyDebuffed = true; logMessage("ガイ：グー敗北によるATK減少。"); }
-                if (eHand === "グー" && enemyChar.trait === "guyDebuff") { nextEnemyBuffs.guyDebuffed = true; }
-                if (playerChar.trait === "gambleBoost" && pHand === "グー") { playerChar.spd = Math.max(0, playerChar.spd - 5); logMessage("ギャンブラー：グー負けでSPD-5。"); }
-                if (enemyChar.trait === "gambleBoost" && eHand === "グー") { enemyChar.spd = Math.max(0, enemyChar.spd - 5); }
+                if (pHand === "グー" && playerChar.trait === "guyDebuff") { nextPlayerBuffs.guyDebuffed = true; logMessage("ガイ：攻撃減少デバフ。"); }
+                if (playerChar.trait === "gambleBoost" && pHand === "グー") { playerChar.spd = Math.max(0, playerChar.spd - 5); }
                 if (!playerDodged && pDmg > 0) { nextPlayerBuffs.revengeAtkMult = 1.5; }
             } else {
                 logMessage("あいこ！ダメージなし。");
@@ -950,26 +907,53 @@
 
             if (playerHp <= 0) {
                 if (playerChar.trait === "reviveTen" && !playerGritTriggered) { playerHp = 10; playerGritTriggered = true; logMessage("ピリオン：HP10で復活！"); }
-                else if (playerChar.item === "hpBook" && !playerGritTriggered) { playerHp = 1; playerGritTriggered = true; logMessage("体力の書：HP1で持ち堪えた！"); }
+                else if (playerChar.item === "hpBook" && !playerGritTriggered) { playerHp = 1; playerGritTriggered = true; logMessage("体力の書：HP1で耐えた！"); }
             }
             if (enemyHp <= 0) {
                 if (enemyChar.trait === "reviveTen" && !enemyGritTriggered) { enemyHp = 10; enemyGritTriggered = true; logMessage("相手のピリオン：HP10で復活！"); }
-                else if (enemyChar.item === "hpBook" && !enemyGritTriggered) { enemyHp = 1; enemyGritTriggered = true; logMessage("相手の体力の書：HP1で持ち堪えた！"); }
+                else if (enemyChar.item === "hpBook" && !enemyGritTriggered) { enemyHp = 1; enemyGritTriggered = true; logMessage("相手の体力の書：HP1で耐えた！"); }
             }
 
             syncHpUI();
             playerBuffs = nextPlayerBuffs; enemyBuffs = nextEnemyBuffs;
 
-            if (playerHp <= 0 || enemyHp <= 0) {
+            if (isOnlineMode && myRole === "host" && isFirebaseAvailable) {
+                roomRef.update({ pLockedCardIdx: nextPLockedCardIdx, eLockedCardIdx: nextELockedCardIdx });
+            }
+
+           if (playerHp <= 0 || enemyHp <= 0) {
                 setTimeout(endBattle, 1200);
             } else {
-                if (!(pHand === "チョキ" && playerChar.trait === "jackKeep")) {
-                    playerHand.push(playerHand.splice(pIdx, 1)[0]);
-                } else { logMessage("ジャック：チョキを使い回す！"); }
-                
-                if (!(eHand === "チョキ" && enemyChar.trait === "jackKeep")) {
-                    enemyHand.push(enemyHand.splice(eIdx, 1)[0]);
-                } else { logMessage("相手のジャック：チョキを使い回す！"); }
+                // 👇【ここから追加】次のターンに使用不可にするカード名を決定する
+                // プレイヤーの判定（ジャックの特性でチョキを出した時は例外）
+                if (playerChar.trait === "jackKeep" && pHand === "チョキ") {
+                    pDisabledCardName = "";
+                } else {
+                    pDisabledCardName = pHand;
+                }
+                // エネミーの判定（ジャックの特性でチョキを出した時は例外）
+                if (enemyChar.trait === "jackKeep" && eHand === "チョキ") {
+                    eDisabledCardName = "";
+                } else {
+                    eDisabledCardName = eHand;
+                }
+
+                // オンライン対戦時、ホストプレイヤーがFirebase上の使用禁止カード名を一括更新して同期する
+                if (isOnlineMode && myRole === "host" && isFirebaseAvailable) {
+                    roomRef.update({ 
+                        pDisabledCardName: pDisabledCardName, 
+                        eDisabledCardName: eDisabledCardName 
+                    });
+                }
+                // 👇【ここまで追加】
+
+                if (myRole === "host") {
+                    if (!(pHand === "チョキ" && playerChar.trait === "jackKeep")) { playerHand.push(playerHand.splice(pIdxReal, 1)[0]); }
+                    if (!(eHand === "チョキ" && enemyChar.trait === "jackKeep")) { enemyHand.push(enemyHand.splice(eIdxReal, 1)[0]); }
+                } else {
+                    if (!(eHand === "チョキ" && playerChar.trait === "jackKeep")) { playerHand.push(playerHand.splice(eIdxReal, 1)[0]); }
+                    if (!(pHand === "チョキ" && enemyChar.trait === "jackKeep")) { enemyHand.push(enemyHand.splice(pIdxReal, 1)[0]); }
+                }
 
                 currentTurn++; isFirstTurn = false;
                 document.querySelectorAll(".card-btn").forEach(b => b.disabled = false);
@@ -1008,11 +992,11 @@
                 
                 if (!unlockedIds.includes(enemyChar.id)) {
                     unlockedIds.push(enemyChar.id); localStorage.setItem('luckl_unlocked', JSON.stringify(unlockedIds));
-                    unlockArea.innerText = `✨ 新キャラ「${enemyChar.name}」を撃破し解放しました！ ✨`; unlockArea.classList.remove("hidden");
+                    unlockArea.innerText = `✨ 新キャラ「${enemyChar.name}」を解放しました！ ✨`; unlockArea.classList.remove("hidden");
                 }
             } else if (playerHp <= 0 && enemyHp <= 0) {
                 msgEl.innerText = "DRAW (引き分け)"; msgEl.style.color = "#666";
-                rewardEl.innerText = "引き分けのため報酬はありません。";
+                rewardEl.innerText = "報酬はありません。";
             } else {
                 msgEl.innerText = "LOSE... 敗北"; msgEl.style.color = "var(--danger-color)";
                 rewardEl.innerText = "次はリベンジしましょう。";
@@ -1021,11 +1005,10 @@
         }
 
         function quitToTitle() {
-            closePeerConnection();
+            leaveFirebaseRoom();
             switchScreen('title-screen');
         }
 
-        /* --- ガチャ機能 --- */
         function drawGacha() {
             if (userGold < 200) return alert("ゴールドが足りません！");
             const lockedChars = CHARACTERS.filter(c => !unlockedIds.includes(c.id));
@@ -1036,7 +1019,7 @@
             document.getElementById("gacha-result-img").classList.add("hidden");
             document.getElementById("gacha-anim-text").classList.remove("hidden");
 
-            let anims = ["✊", "✌️", "🖐️", "🎰", "⚡", "⚔️"]; let count = 0;
+            let anims = ["✊", "✌️", "🖐️", "🎰", "⚔️"]; let count = 0;
             let interval = setInterval(() => {
                 document.getElementById("gacha-anim-text").innerText = anims[count % anims.length]; count++;
                 if (count > 10) {
@@ -1046,8 +1029,7 @@
                     
                     document.getElementById("gacha-anim-text").classList.add("hidden");
                     const resImg = document.getElementById("gacha-result-img");
-                    resImg.src = newChar.image;
-                    resImg.classList.remove("hidden");
+                    resImg.src = newChar.image; resImg.classList.remove("hidden");
                     
                     alert(`NEWキャラクター獲得！\n【${newChar.name}】が使用可能になりました！`);
                     document.getElementById("gacha-exec-btn").disabled = false;
@@ -1055,7 +1037,6 @@
             }, 150);
         }
 
-        /* --- ショップ機能 --- */
         function buyItem(key, price) {
             if (userGold < price) return alert("ゴールドが足りません！");
             userGold -= price; inventory[key]++;
