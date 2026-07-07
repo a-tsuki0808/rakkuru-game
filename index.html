@@ -579,6 +579,18 @@
                     pDisabledCardName = data.pDisabledCardName !== undefined ? data.pDisabledCardName : "";
                     eDisabledCardName = data.eDisabledCardName !== undefined ? data.eDisabledCardName : "";
 
+                    if (myRole === "guest") {
+                        if (data.pHp !== undefined) playerHp = data.pHp;
+                        if (data.eHp !== undefined) enemyHp = data.eHp;
+                        updateHpDisplay(); // 画面のHPバーや数値を更新
+
+                        // もしどちらかのHPが0以下（決着）になったら、ゲスト側も自動で終了画面へ進める
+                        if (playerHp <= 0 || enemyHp <= 0) {
+                            setTimeout(endBattle, 1200);
+                        }
+                    }
+                    // 👆【ここまで追加】
+
                     const myCard = myRole === "host" ? data.hostCard : data.guestCard;
                     const opCard = myRole === "host" ? data.guestCard : data.hostCard;
                     const myCardIdx = myRole === "host" ? data.hostCardIdx : data.guestCardIdx;
