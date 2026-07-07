@@ -839,6 +839,8 @@
 
        function executeTurnResolve(myHandStr, myIdx, opHandStr, opIdx) {
             document.getElementById("log-box").innerHTML = `【ターン ${currentTurn}】`;
+
+            if (isOnlineMode && myRole === "guest") return;
             
             // 内部判定用：pHandは常にホスト（A）のカード、eHandは常にゲスト（B）のカードにする
             const pHand = (myRole === "guest") ? opHandStr : myHandStr;
@@ -950,6 +952,8 @@
                 // オンライン対戦時、ホストプレイヤーがFirebase上の使用禁止カード名を一括更新して同期する
                 if (isOnlineMode && myRole === "host" && isFirebaseAvailable) {
                     roomRef.update({ 
+                    　　pHp: playerHp,
+                        eHp: enemyHp,
                         pDisabledCardName: pDisabledCardName, 
                         eDisabledCardName: eDisabledCardName 
                     });
