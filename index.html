@@ -582,10 +582,12 @@
                     eDisabledCardName = data.eDisabledCardName !== undefined ? data.eDisabledCardName : "";
 
                     // 👇【修正・追加】ゲスト側の演出開始とHP強制同期
+                   // ゲスト側の演出開始とHP強制同期
                     if (myRole === "guest") {
-                        // お互いがカードを選び終わっている（Aが処理を開始できる状態）かつ、まだゲスト側で演出が始まっていない場合
-                        if (data.hostCard && data.guestCard && document.querySelectorAll(".card-btn:not([disabled])").length > 0) {
-                            // ゲスト側でもカードを出す演出（executeTurnResolve）を強制的に実行する
+                        // お互いがカードを選び終わっていて、かつゲスト側の画面のログがまだ「相手の決定を待っています...」の時だけ演出を実行する
+                        const currentLog = document.getElementById("log-box") ? document.getElementById("log-box").innerHTML : "";
+                        if (data.hostCard && data.guestCard && currentLog.includes("相手の決定を待っています")) {
+                            // ゲスト側でもカードを出す演出（executeTurnResolve）をスタート！
                             executeTurnResolve(data.guestCard, data.guestCardIdx, data.hostCard, data.hostCardIdx);
                         }
 
