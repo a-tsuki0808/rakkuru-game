@@ -407,6 +407,9 @@
         let inventory = JSON.parse(localStorage.getItem('luckl_inventory')) || { telescope: 0, spiderweb: 0, atkBook: 0, hpBook: 0, shoes: 0 };
         let profileName = localStorage.getItem('luckl_profile_name') || "プレイヤー";
 
+        let pDisabledCardName = "";
+　　　　let eDisabledCardName = "";
+
         let isOnlineMode = false;
         let currentRoomId = null;
         let myRole = null; 
@@ -421,8 +424,6 @@
         let isFirstTurn = true;
         let playerGritTriggered = false; let enemyGritTriggered = false;
         let pLockedCardIdx = -1; let eLockedCardIdx = -1;
-        let pDisabledCardName = "";
-        let eDisabledCardName = "";
 
         let playerBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: 0 };
         let enemyBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: 0 };
