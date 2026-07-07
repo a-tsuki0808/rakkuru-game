@@ -266,7 +266,7 @@
             <div class="slot-container"><label>⚔️ スロット 1</label><select id="slot-0" class="slot-select"><option value="グー">✊ グー</option><option value="チョキ">✌️ チョキ</option><option value="パー">🖐️ パー</option></select></div>
             <div class="slot-container"><label>⚔️ スロット 2</label><select id="slot-1" class="slot-select"><option value="グー">✊ グー</option><option value="チョキ" selected>✌️ チョキ</option><option value="パー">🖐️ パー</option></select></div>
             <div class="slot-container"><label>⚔️ スロット 3</label><select id="slot-2" class="slot-select"><option value="グー">✊ グー</option><option value="チョキ">✌️ チョキ</option><option value="パー" selected>🖐️ パー</option></select></div>
-            <div class="slot-container"><label>🎒 使用アイテム</label><select id="item-select" class="slot-select" onchange="onItemSelectChange()"><option value="">なし</option><option value="telescope">望遠鏡</option><option value="spiderweb">クモの糸</option><option value="atkBook">攻撃の書</option><option value="hpBook">体力の書</option><option value="shoes">いだてんの靴</option></select></div>
+            <div class="slot-container"><label>🎒 使用アイテム</label><select id="item-select" class="slot-select" onchange="onItemSelectChange()"><option value="">なし</option><option value="telescope">望遠鏡</option><option value="spiderweb">クモの糸</option><option value="atkBook">攻撃 of 書</option><option value="hpBook">体力 of 書</option><option value="shoes">いだてんの靴</option></select></div>
         </div>
 
         <div id="actual-build-inputs" style="margin-top: 25px;">
@@ -354,7 +354,6 @@
     </div>
 
     <script>
-        // --- ⚙️ FIREBASE設定エリア ---
         const firebaseConfig = {
             apiKey: "AIzaSyA5UsxVKXjwUJfdmpUc5WLDofkdkw3iouM",
             authDomain: "rakkuru-game.firebaseapp.com",
@@ -374,7 +373,7 @@
                 database = firebase.database();
                 isFirebaseAvailable = true;
             } catch (e) {
-                console.error("Firebaseの初期化に失敗しました。ソロモードのみ動作します:", e);
+                console.error("Firebase初期化失敗:", e);
             }
         }
 
@@ -404,9 +403,6 @@
         let inventory = JSON.parse(localStorage.getItem('luckl_inventory')) || { telescope: 0, spiderweb: 0, atkBook: 0, hpBook: 0, shoes: 0 };
         let profileName = localStorage.getItem('luckl_profile_name') || "プレイヤー";
 
-        let pDisabledCardName = "";
-        let eDisabledCardName = "";
-
         let isOnlineMode = false;
         let currentRoomId = null;
         let myRole = null; 
@@ -420,7 +416,12 @@
         let timerInterval = null; let timeLeft = 30;
         let isFirstTurn = true;
         let playerGritTriggered = false; let enemyGritTriggered = false;
-        let pLockedCardIdx = -1; let eLockedCardIdx = -1;
+        
+        // 🛠️ 「位置（インデックス）」で制限するように変数を再定義
+        let pUsedCardIdx = -1; 
+        let eUsedCardIdx = -1;
+        let pLockedCardIdx = -1; 
+        let eLockedCardIdx = -1;
 
         let playerBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: 0 };
         let enemyBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: 0 };
@@ -462,7 +463,7 @@
 
         function startOnlineSetup() {
             if (!isFirebaseAvailable) {
-                alert("Firebaseの設定（Config）が完了していないため、オンライン対戦は利用できません。コード内のfirebaseConfigを設定してください。");
+                alert("Firebaseが設定されていません。");
                 return;
             }
             isOnlineMode = true;
@@ -470,7 +471,7 @@
             document.getElementById("online-connection-panel").classList.remove("hidden");
             document.getElementById("main-fight-btn").innerText = "通信接続を完了させてください";
             document.getElementById("main-fight-btn").disabled = true;
-            document.getElementById("connection-status-text").innerText = "接続状態: 未接続（部屋番号を入力してください）";
+            document.getElementById("connection-status-text").innerText = "接続状態: 未接続";
             switchScreen('select-screen');
         }
 
@@ -482,12 +483,8 @@
         function leaveFirebaseRoom() {
             if (roomRef) {
                 roomRef.off();
-                if (myRole === "host") {
-                    roomRef.remove(); 
-                } else if (myRole === "guest") {
-                    roomRef.child("guestName").set("");
-                    roomRef.child("guestReady").set(false);
-                }
+                if (myRole === "host") { roomRef.remove(); }
+                else if (myRole === "guest") { roomRef.child("guestName").set(""); roomRef.child("guestReady").set(false); }
                 roomRef = null;
             }
             currentRoomId = null; myRole = null;
@@ -503,15 +500,13 @@
             currentRoomId = roomNum;
             roomRef = database.ref("rooms/" + currentRoomId);
 
-            document.getElementById("connection-status-text").innerText = `部屋「${roomNum}」を作成中...`;
-
             roomRef.set({
                 hostName: profileName, hostReady: false, hostCard: "", hostCardIdx: -1,
                 guestName: "", guestReady: false, guestCard: "", guestCardIdx: -1,
                 gameStarted: false, currentTurn: 0, pLockedCardIdx: -1, eLockedCardIdx: -1,
-                pDisabledCardName: "", eDisabledCardName: "", lastLog: ""
+                pUsedCardIdx: -1, eUsedCardIdx: -1, lastLog: "", syncId: 0
             }).then(() => {
-                document.getElementById("connection-status-text").innerText = `🏠 部屋「${roomNum}」を作成しました。相手の入室を待っています...`;
+                document.getElementById("connection-status-text").innerText = `🏠 部屋「${roomNum}」を作成しました。相手を待っています...`;
                 setupRoomListener();
             });
         }
@@ -526,23 +521,16 @@
             currentRoomId = roomNum;
             roomRef = database.ref("rooms/" + currentRoomId);
 
-            document.getElementById("connection-status-text").innerText = `部屋「${roomNum}」を探しています...`;
-
             roomRef.once("value").then(snapshot => {
-                if (!snapshot.exists()) {
-                    alert("指定された部屋が見つかりません。");
-                    document.getElementById("connection-status-text").innerText = "接続状態: エラー（部屋なし）";
-                    return;
-                }
-                roomRef.update({
-                    guestName: profileName,
-                    guestReady: false
-                }).then(() => {
-                    document.getElementById("connection-status-text").innerText = `🚪 部屋「${roomNum}」に入室しました！構成を決定してください。`;
+                if (!snapshot.exists()) return alert("部屋が見つかりません。");
+                roomRef.update({ guestName: profileName, guestReady: false }).then(() => {
+                    document.getElementById("connection-status-text").innerText = `🚪 部屋「${roomNum}」に入室しました！`;
                     setupRoomListener();
                 });
             });
         }
+
+        let lastHandledSyncId = -1;
 
         function setupRoomListener() {
             if (!isFirebaseAvailable || !roomRef) return;
@@ -551,12 +539,12 @@
                 if (!data) return;
 
                 if (myRole === "host" && data.guestName && !data.gameStarted) {
-                    document.getElementById("connection-status-text").innerText = `🟢 相手 (${data.guestName}) が入室しました！構成を選んで決定してください。`;
-                    document.getElementById("main-fight-btn").innerText = "構成を送信して準備完了！";
+                    document.getElementById("connection-status-text").innerText = `🟢 相手 (${data.guestName}) が入室しました！`;
+                    document.getElementById("main-fight-btn").innerText = "準備完了！";
                     document.getElementById("main-fight-btn").disabled = false;
                 }
                 if (myRole === "guest" && !data.gameStarted) {
-                    document.getElementById("main-fight-btn").innerText = "構成を送信して準備完了！";
+                    document.getElementById("main-fight-btn").innerText = "準備完了！";
                     document.getElementById("main-fight-btn").disabled = false;
                 }
 
@@ -572,40 +560,42 @@
                 }
 
                 if (data.gameStarted && currentTurn > 0) {
+                    // 🛡️ ロック状態のリアルタイム更新
                     pLockedCardIdx = data.pLockedCardIdx !== undefined ? data.pLockedCardIdx : -1;
                     eLockedCardIdx = data.eLockedCardIdx !== undefined ? data.eLockedCardIdx : -1;
-                    pDisabledCardName = data.pDisabledCardName !== undefined ? data.pDisabledCardName : "";
-                    eDisabledCardName = data.eDisabledCardName !== undefined ? data.eDisabledCardName : "";
+                    pUsedCardIdx = data.pUsedCardIdx !== undefined ? data.pUsedCardIdx : -1;
+                    eUsedCardIdx = data.eUsedCardIdx !== undefined ? data.eUsedCardIdx : -1;
 
-                    // ゲスト（B）専用のリアルタイム同期・演出処理
-                    if (myRole === "guest") {
-                        if (data.lastHostCard && data.lastGuestCard && data.currentTurn === currentTurn) {
-                            // ホスト側（A）が計算を完了して確定させたデータを元に演出を走らせる
-                            executeTurnResolve(data.lastGuestCard, data.lastGuestCardIdx, data.lastHostCard, data.lastHostCardIdx, data.lastLog);
-                            
-                            // ゲスト視点に合わせたHP強制同期 (Firebase上のpHp=ホストHP, eHp=ゲストHP)
-                            if (data.pHp !== undefined) enemyHp = data.pHp;
-                            if (data.eHp !== undefined) playerHp = data.eHp;
-                            syncHpUI();
+                    // 🤝 お互い出し終わったことを確認して同期処理を走らせる (syncIdで管理)
+                    if (data.syncId > lastHandledSyncId && data.lastHostCard && data.lastGuestCard) {
+                        lastHandledSyncId = data.syncId;
+                        
+                        let myHandStr = (myRole === "host") ? data.lastHostCard : data.lastGuestCard;
+                        let myIdx = (myRole === "host") ? data.lastHostCardIdx : data.lastGuestCardIdx;
+                        let opHandStr = (myRole === "host") ? data.lastGuestCard : data.lastHostCard;
+                        let opIdx = (myRole === "host") ? data.lastGuestCardIdx : data.lastHostCardIdx;
 
-                            if (playerHp <= 0 || enemyHp <= 0) {
-                                setTimeout(endBattle, 1200);
-                            }
+                        // ホストの計算したHPで同期
+                        if (myRole === "host") {
+                            playerHp = data.pHp;
+                            enemyHp = data.eHp;
+                        } else {
+                            playerHp = data.eHp;
+                            enemyHp = data.pHp;
                         }
+
+                        executeTurnResolveVisuals(myHandStr, myIdx, opHandStr, opIdx, data.lastLog);
                     }
 
-                    // ホスト（A）専用のカード揃い検知処理
-                    if (myRole === "host") {
-                        const myCard = data.hostCard;
-                        const opCard = data.guestCard;
-                        const myCardIdx = data.hostCardIdx;
-                        const opCardIdx = data.guestCardIdx;
+                    // 👑 ホスト側のみ：両者のカードが揃ったらメイン計算を行いFirebaseを更新
+                    if (myRole === "host" && data.hostCard && data.guestCard) {
+                        let hCard = data.hostCard;
+                        let gCard = data.guestCard;
+                        let hIdx = data.hostCardIdx;
+                        let gIdx = data.guestCardIdx;
 
-                        if (myCard && opCard) {
-                            // お互いの選択カードを一旦クリアして、ホスト側でメイン計算を実行
-                            roomRef.update({ hostCard: "", guestCard: "", hostCardIdx: -1, guestCardIdx: -1 });
-                            executeTurnResolve(myCard, myCardIdx, opCard, opCardIdx);
-                        }
+                        roomRef.update({ hostCard: "", guestCard: "" }); // 送信バッファクリア
+                        processTurnCalculationOnHost(hCard, hIdx, gCard, gIdx, data.syncId + 1);
                     }
                 }
             });
@@ -636,8 +626,8 @@
             if(select && select.options.length > 5) {
                 select.options[1].text = `望遠鏡 (${inventory.telescope})`;
                 select.options[2].text = `クモの糸 (${inventory.spiderweb})`;
-                select.options[3].text = `攻撃の書 (${inventory.atkBook})`;
-                select.options[4].text = `体力の書 (${inventory.hpBook})`;
+                select.options[3].text = `攻撃 of 書 (${inventory.atkBook})`;
+                select.options[4].text = `体力 of 書 (${inventory.hpBook})`;
                 select.options[5].text = `いだてんの靴 (${inventory.shoes})`;
             }
         }
@@ -666,8 +656,8 @@
             playerHp = playerChar.hp;
             playerChar.maxHp = playerChar.hp;
             currentTurn = 0; 
-            pLockedCardIdx = -1;
-            eLockedCardIdx = -1;
+            pLockedCardIdx = -1; eLockedCardIdx = -1;
+            pUsedCardIdx = -1; eUsedCardIdx = -1;
 
             playerBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: 0 };
             enemyBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: 0 };
@@ -684,23 +674,14 @@
             playerChar.item = usedItem;
 
             if (isOnlineMode) {
-                if (!isFirebaseAvailable || !roomRef) return alert("部屋に接続されていません。");
-                
-                document.getElementById("main-fight-btn").innerText = "相手の準備完了を待っています...";
+                if (!isFirebaseAvailable || !roomRef) return alert("接続エラー");
+                document.getElementById("main-fight-btn").innerText = "待機中...";
                 document.getElementById("main-fight-btn").disabled = true;
 
                 if (myRole === "host") {
-                    roomRef.update({
-                        hostChar: playerChar,
-                        hostHand: playerHand,
-                        hostReady: true
-                    });
+                    roomRef.update({ hostChar: playerChar, hostHand: playerHand, hostReady: true });
                 } else {
-                    roomRef.update({
-                        guestChar: playerChar,
-                        guestHand: playerHand,
-                        guestReady: true
-                    });
+                    roomRef.update({ guestChar: playerChar, guestHand: playerHand, guestReady: true });
                 }
             } else {
                 setupSinglePlayerEnemy();
@@ -714,7 +695,11 @@
             enemyChar = JSON.parse(JSON.stringify(randomEnemyBase));
             enemyHp = enemyChar.hp;
             enemyChar.maxHp = enemyChar.hp;
-            enemyChar.item = "none";
+            
+            // 🤖 AIのアイテムランダム装備
+            const items = ["none", "telescope", "spiderweb", "atkBook", "hpBook", "shoes"];
+            enemyChar.item = items[Math.floor(Math.random() * items.length)];
+            if (enemyChar.item === "shoes") enemyChar.spd += 30;
 
             const rOpts = ["グー", "チョキ", "パー"];
             enemyHand = [rOpts[Math.floor(Math.random() * 3)], rOpts[Math.floor(Math.random() * 3)], rOpts[Math.floor(Math.random() * 3)]];
@@ -732,21 +717,19 @@
             document.getElementById("p-played-card").innerHTML = "";
 
             document.getElementById("e-img").src = enemyChar.image;
-            document.getElementById("e-name").innerText = isOnlineMode ? (myRole === "host" ? "ゲストプレイヤー" : "ホストプレイヤー") : enemyChar.name + " (AI)";
+            document.getElementById("e-name").innerText = isOnlineMode ? (myRole === "host" ? "ゲスト" : "ホスト") : enemyChar.name + " (AI)";
             document.getElementById("e-maxhp").innerText = enemyChar.maxHp;
             document.getElementById("e-trait-desc").innerText = "特性: " + enemyChar.traitDesc;
+            document.getElementById("p-played-card").innerHTML = "";
             document.getElementById("e-played-card").innerHTML = "";
 
             isFirstTurn = true;
-            playerGritTriggered = false;
-            enemyGritTriggered = false;
-            pDisabledCardName = "";
-            eDisabledCardName = "";
+            playerGritTriggered = false; enemyGritTriggered = false;
+            pUsedCardIdx = -1; eUsedCardIdx = -1;
+            pLockedCardIdx = -1; eLockedCardIdx = -1;
 
-            document.getElementById("log-box").innerHTML = "バトル開始！手札を選んでください。";
+            document.getElementById("log-box").innerHTML = "バトル開始！カードを選択してください。";
             
-            playerHp = playerChar.maxHp;
-            enemyHp = enemyChar.maxHp;
             syncHpUI();
             renderHandButtons();
             startTurnTimer();
@@ -763,13 +746,16 @@
             const container = document.getElementById("player-hand-ui");
             container.innerHTML = "";
             
-            const myLockIdx = (myRole === "host") ? pLockedCardIdx : eLockedCardIdx;
-            const myDisabledName = (myRole === "host") ? pDisabledCardName : eDisabledCardName;
+            // 👤 自分の立場に合わせてロック位置を特定
+            const myLockIdx = (myRole === "guest") ? eLockedCardIdx : pLockedCardIdx;
+            const myUsedIdx = (myRole === "guest") ? eUsedCardIdx : pUsedCardIdx;
 
             playerHand.forEach((handName, idx) => {
                 const btn = document.createElement("button");
                 btn.className = "card-btn";
-                if (idx === myLockIdx || handName === myDisabledName) {
+                
+                // 🛠️ 「位置（インデックス）」ベースのロック判定に変更
+                if (idx === myLockIdx || idx === myUsedIdx) {
                     btn.classList.add("locked-card");
                 }
                 btn.innerHTML = `<img src="${JANKEN_IMAGES[handName]}"> ${handName}`;
@@ -778,15 +764,11 @@
             });
         }
 
-        function logMessage(msg) {
-            const box = document.getElementById("log-box");
-            box.innerHTML += `<br>> ${msg}`;
-            box.scrollTop = box.scrollHeight;
-        }
-
         function startTurnTimer() {
             clearInterval(timerInterval);
             timeLeft = 30;
+            
+            // 🎒 アイテム機能の反映（タイマー増減）
             if (isFirstTurn) {
                 if (playerChar.item === "telescope") timeLeft = 45; 
                 if (enemyChar.item === "spiderweb") timeLeft = 15; 
@@ -798,45 +780,47 @@
                 document.getElementById("turn-timer").innerText = `⏱️ ${timeLeft}`;
                 if (timeLeft <= 0) {
                     clearInterval(timerInterval);
-                    selectHandAction(0); 
+                    // 制限時間切れの時は、ロックされてない位置を自動選択
+                    const myLockIdx = (myRole === "guest") ? eLockedCardIdx : pLockedCardIdx;
+                    const myUsedIdx = (myRole === "guest") ? eUsedCardIdx : pUsedCardIdx;
+                    let validIdx = 0;
+                    for(let i=0; i<3; i++) {
+                        if(i !== myLockIdx && i !== myUsedIdx) { validIdx = i; break; }
+                    }
+                    selectHandAction(validIdx); 
                 }
             }, 1000);
         }
 
         function selectHandAction(idx) {
-            const myLockIdx = (myRole === "host") ? pLockedCardIdx : eLockedCardIdx;
-            const myDisabledName = (myRole === "host") ? pDisabledCardName : eDisabledCardName;
-            const chosenHand = playerHand[idx];
+            const myLockIdx = (myRole === "guest") ? eLockedCardIdx : pLockedCardIdx;
+            const myUsedIdx = (myRole === "guest") ? eUsedCardIdx : pUsedCardIdx;
 
-            if (idx === myLockIdx) {
-                alert("このスロットのカードはロックされています！別のカードを選んでください。");
-                return;
-            }
-            
-            if (chosenHand === myDisabledName) {
-                alert(`「${chosenHand}」は前のターンに使ったため、このターンは連続で使用できません！`);
-                return;
-            }
+            if (idx === myLockIdx) return alert("このスロットはアイアンの特性でロックされています！");
+            if (idx === myUsedIdx) return alert("このスロットのカードは前のターンに使用したため連続で使えません！");
 
             clearInterval(timerInterval);
             document.querySelectorAll(".card-btn").forEach(b => b.disabled = true);
 
+            const chosenHand = playerHand[idx];
+
             if (isOnlineMode) {
-                logMessage("あなたの選択完了。相手の選択を待っています...");
+                document.getElementById("log-box").innerHTML = "相手の選択を待っています...";
                 if (myRole === "host") {
                     roomRef.update({ hostCard: chosenHand, hostCardIdx: idx });
                 } else {
                     roomRef.update({ guestCard: chosenHand, guestCardIdx: idx });
                 }
             } else {
-                const aiLockIdx = eLockedCardIdx;
+                // 🤖 AI（ソロモード）の選択
                 let aiIdx = Math.floor(Math.random() * 3);
-                while (aiIdx === aiLockIdx || enemyHand[aiIdx] === eDisabledCardName) { 
+                while (aiIdx === eLockedCardIdx || aiIdx === eUsedCardIdx) { 
                     aiIdx = Math.floor(Math.random() * 3); 
                 }
-
                 const aiHand = enemyHand[aiIdx];
-                executeTurnResolve(chosenHand, idx, aiHand, aiIdx);
+                
+                // ソロモード用の擬似ホスト計算
+                processTurnCalculationOnSolo(chosenHand, idx, aiHand, aiIdx);
             }
         }
 
@@ -850,168 +834,155 @@
             return 'enemy';
         }
 
-        function executeTurnResolve(myHandStr, myIdx, opHandStr, opIdx, guestSyncLog = "") {
-            document.getElementById("log-box").innerHTML = `【ターン ${currentTurn}】`;
-
-            // 🎨 画面描画処理：どちらの画面でも「左が自分」「右が相手」に強制統一
-            document.getElementById("p-played-card").innerHTML = `<img src="${JANKEN_IMAGES[myHandStr]}" class="battle-hand-img">`;
-            document.getElementById("e-played-card").innerHTML = `<img src="${JANKEN_IMAGES[opHandStr]}" class="battle-hand-img">`;
-
-            // 🌐 オンライン対戦かつ自分がゲスト（B）の場合の専用同期ルート
-            if (isOnlineMode && myRole === "guest") {
-                if (guestSyncLog) {
-                    document.getElementById("log-box").innerHTML += guestSyncLog;
-                    const box = document.getElementById("log-box");
-                    box.scrollTop = box.scrollHeight;
-                }
-
-                if (!(opHandStr === "チョキ" && enemyChar.trait === "jackKeep")) { enemyHand.push(enemyHand.splice(opIdx, 1)[0]); }
-                if (!(myHandStr === "チョキ" && playerChar.trait === "jackKeep")) { playerHand.push(playerHand.splice(myIdx, 1)[0]); }
-
-                currentTurn++; isFirstTurn = false;
-                document.querySelectorAll(".card-btn").forEach(b => b.disabled = false);
-                renderHandButtons(); 
-                startTurnTimer();
-                return; // ゲストはここで処理を終了（計算はホストに任せる）
-            }
-
-            // 🤖 ソロまたはホスト（A）のメイン計算ルート
-            const pHand = (myRole === "guest") ? opHandStr : myHandStr;
-            const eHand = (myRole === "guest") ? myHandStr : opHandStr;
-            const pIdxReal = (myRole === "guest") ? opIdx : myIdx;
-            const eIdxReal = (myRole === "guest") ? myIdx : opIdx;
-
-            if (playerChar.trait === "turnHealFive") { playerHp = Math.min(playerChar.maxHp, playerHp + 5); logMessage("フロリエル：HP5回復。"); }
-            if (enemyChar.trait === "turnHealFive") { enemyHp = Math.min(enemyChar.maxHp, enemyHp + 5); logMessage("相手のフロリエル：HP5回復。"); }
-            if (playerChar.trait === "shadowSpeed") { playerChar.spd += 5; logMessage("シャドウ：SPD5上昇。"); }
-            if (enemyChar.trait === "shadowSpeed") { enemyChar.spd += 5; logMessage("相手のシャドウ：SPD5上昇。"); }
-
-            let result = judgeJanken(pHand, eHand, playerChar.trait, enemyChar.trait);
-            let pDmg = 0, eDmg = 0;
-            let playerDodged = (playerChar.trait === "dodgeQuarter" && Math.random() < 0.25);
-            let enemyDodged = (enemyChar.trait === "dodgeQuarter" && Math.random() < 0.25);
+        // 👑 オンライン用：ホスト側（A）で行う絶対的な勝敗・ダメージ・バフデバフ計算
+        function processTurnCalculationOnHost(hCard, hIdx, gCard, gIdx, nextSyncId) {
+            let tempLog = `【ターン ${currentTurn}】<br>`;
             
-            let nextPlayerBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: playerBuffs.winStreak };
-            let nextEnemyBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: enemyBuffs.winStreak };
+            if (playerChar.trait === "turnHealFive") { playerHp = Math.min(playerChar.maxHp, playerHp + 5); tempLog += "> ホスト(フロリエル)：HP5回復。<br>"; }
+            if (enemyChar.trait === "turnHealFive") { enemyHp = Math.min(enemyChar.maxHp, enemyHp + 5); tempLog += "> ゲスト(フロリエル)：HP5回復。<br>"; }
+            if (playerChar.trait === "shadowSpeed") { playerChar.spd += 5; tempLog += "> ホスト(シャドウ)：SPD+5。<br>"; }
+            if (enemyChar.trait === "shadowSpeed") { enemyChar.spd += 5; tempLog += "> ゲスト(シャドウ)：SPD+5。<br>"; }
 
-            let nextPLockedCardIdx = -1;
-            let nextELockedCardIdx = -1;
+            let result = judgeJanken(hCard, gCard, playerChar.trait, enemyChar.trait);
+            let pDmg = 0, eDmg = 0;
+            let hDodged = (playerChar.trait === "dodgeQuarter" && Math.random() < 0.25);
+            let gDodged = (enemyChar.trait === "dodgeQuarter" && Math.random() < 0.25);
 
-            if (result === 'player') {
+            let nextPBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: playerBuffs.winStreak };
+            let nextEBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: enemyBuffs.winStreak };
+            let nextPLock = -1, nextELock = -1;
+
+            if (result === 'player') { // ホスト勝ち
                 playerBuffs.winStreak++; enemyBuffs.winStreak = 0;
-                if (enemyDodged) { logMessage("相手は攻撃を回避した！"); }
+                if (gDodged) { tempLog += "> ゲストが攻撃を回避！<br>"; }
                 else {
-                    eDmg = calculateDamage(pHand, playerChar, enemyChar, isFirstTurn, playerBuffs, eHand);
-                    if (playerChar.trait === "doubleWinForce" && playerBuffs.winStreak >= 2) { eDmg = enemyHp; logMessage("グレイヴ：強制勝利！"); }
-                    logMessage(`あなたの勝利！ ${eDmg} のダメージ！`);
-                    if (pHand === "パー" && playerChar.trait === "silvaHeal") { playerHp = Math.min(playerChar.maxHp, playerHp + 30); logMessage("シルヴァ：HP30回復。"); }
-                    if (pHand === "パー" && playerChar.trait === "valxDouble") { nextPlayerBuffs.nextAtkMult = 2; logMessage("ヴァルクス：次ATK2倍。"); }
-                    if (pHand === "グー" && playerChar.trait === "ironNextDebuff") { 
-                        nextPlayerBuffs.ironDebuffed = true; 
-                        nextELockedCardIdx = eIdxReal; 
-                        logMessage("アイアン：相手の次ターンATK半減 ＆ スロットロック！"); 
-                    }
+                    eDmg = calculateDamage(hCard, playerChar, enemyChar, isFirstTurn, playerBuffs, gCard);
+                    if (playerChar.trait === "doubleWinForce" && playerBuffs.winStreak >= 2) { eDmg = enemyHp; tempLog += "> ホスト(グレイヴ)：2連勝による強制一撃必殺！<br>"; }
+                    tempLog += `> ホストの勝利！ ゲストへ ${eDmg} のダメージ！<br>`;
+                    if (hCard === "パー" && playerChar.trait === "silvaHeal") { playerHp = Math.min(playerChar.maxHp, playerHp + 30); tempLog += "> ホスト(シルヴァ)：HP30回復。<br>"; }
+                    if (hCard === "パー" && playerChar.trait === "valxDouble") { nextPBuffs.nextAtkMult = 2; tempLog += "> ホスト(ヴァルクス)：次ターンATK2倍！<br>"; }
+                    if (hCard === "グー" && playerChar.trait === "ironNextDebuff") { nextEBuffs.ironDebuffed = true; nextELock = gIdx; tempLog += "> ホスト(アイアン)：相手の次ATK半減＆スロットロック！<br>"; }
                 }
-                if (!enemyDodged && eDmg > 0) { nextEnemyBuffs.revengeAtkMult = 1.5; }
-            } else if (result === 'enemy') {
+                if (!gDodged && eDmg > 0) nextEBuffs.revengeAtkMult = 1.5;
+            } else if (result === 'enemy') { // ゲスト勝ち
                 enemyBuffs.winStreak++; playerBuffs.winStreak = 0;
-                if (playerDodged) { logMessage("カゲマル：完全回避！"); }
+                if (hDodged) { tempLog += "> ホストが攻撃を回避！<br>"; }
                 else {
-                    pDmg = calculateDamage(eHand, enemyChar, playerChar, isFirstTurn, enemyBuffs, pHand);
-                    if (enemyChar.trait === "doubleWinForce" && enemyBuffs.winStreak >= 2) { pDmg = playerHp; logMessage("相手のグレイヴ：強制勝利！"); }
-                    logMessage(`あなたの敗北... ${pDmg} のダメージを受けました。`);
-                    if (eHand === "パー" && enemyChar.trait === "silvaHeal") { enemyHp = Math.min(enemyChar.maxHp, enemyHp + 30); logMessage("相手のシルヴァ：HP30回復。"); }
-                    if (eHand === "パー" && enemyChar.trait === "valxDouble") { nextEnemyBuffs.nextAtkMult = 2; logMessage("相手のヴァルクス：次ATK2倍。"); }
-                    if (eHand === "グー" && enemyChar.trait === "ironNextDebuff") { 
-                        nextEnemyBuffs.ironDebuffed = true; 
-                        nextPLockedCardIdx = pIdxReal; 
-                        logMessage("相手のアイアン：あなたの次ATK半減 ＆ スロットロック！"); 
-                    }
+                    pDmg = calculateDamage(gCard, enemyChar, playerChar, isFirstTurn, enemyBuffs, hCard);
+                    if (enemyChar.trait === "doubleWinForce" && enemyBuffs.winStreak >= 2) { pDmg = playerHp; tempLog += "> ゲスト(グレイヴ)：2連勝による強制一撃必殺！<br>"; }
+                    tempLog += `> ゲストの勝利！ ホストへ ${pDmg} のダメージ！<br>`;
+                    if (gCard === "パー" && enemyChar.trait === "silvaHeal") { enemyHp = Math.min(enemyChar.maxHp, enemyHp + 30); tempLog += "> ゲスト(シルヴァ)：HP30回復。<br>"; }
+                    if (gCard === "パー" && enemyChar.trait === "valxDouble") { nextEBuffs.nextAtkMult = 2; tempLog += "> ゲスト(ヴァルクス)：次ターンATK2倍！<br>"; }
+                    if (gCard === "グー" && enemyChar.trait === "ironNextDebuff") { nextPBuffs.ironDebuffed = true; nextPLock = hIdx; tempLog += "> ゲスト(アイアン)：相手の次ATK半減＆スロットロック！<br>"; }
                 }
-                if (pHand === "グー" && playerChar.trait === "guyDebuff") { nextPlayerBuffs.guyDebuffed = true; logMessage("ガイ：攻撃減少デバフ。"); }
-                if (playerChar.trait === "gambleBoost" && pHand === "グー") { playerChar.spd = Math.max(0, playerChar.spd - 5); }
-                if (!playerDodged && pDmg > 0) { nextPlayerBuffs.revengeAtkMult = 1.5; }
+                if (hCard === "グー" && playerChar.trait === "guyDebuff") { nextPBuffs.guyDebuffed = true; tempLog += "> ホスト(ガイ)：攻撃減少デバフ。<br>"; }
+                if (playerChar.trait === "gambleBoost" && hCard === "グー") { playerChar.spd = Math.max(0, playerChar.spd - 5); }
+                if (!hDodged && pDmg > 0) nextPBuffs.revengeAtkMult = 1.5;
             } else {
-                logMessage("あいこ！ダメージなし。");
+                tempLog += "> あいこ！ダメージなし。<br>";
                 playerBuffs.winStreak = 0; enemyBuffs.winStreak = 0;
             }
 
             playerHp -= pDmg; enemyHp -= eDmg;
 
+            // 🎒 アイテム機能（体力 of 書の不屈効果）
             if (playerHp <= 0) {
-                if (playerChar.trait === "reviveTen" && !playerGritTriggered) { playerHp = 10; playerGritTriggered = true; logMessage("ピリオン：HP10で復活！"); }
-                else if (playerChar.item === "hpBook" && !playerGritTriggered) { playerHp = 1; playerGritTriggered = true; logMessage("体力の書：HP1で耐えた！"); }
+                if (playerChar.trait === "reviveTen" && !playerGritTriggered) { playerHp = 10; playerGritTriggered = true; tempLog += "> ホスト：復活特性発動！HP10で耐えた！<br>"; }
+                else if (playerChar.item === "hpBook" && !playerGritTriggered) { playerHp = 1; playerGritTriggered = true; tempLog += "> ホスト：体力 of 書の効果でHP1で耐えた！<br>"; }
             }
             if (enemyHp <= 0) {
-                if (enemyChar.trait === "reviveTen" && !enemyGritTriggered) { enemyHp = 10; enemyGritTriggered = true; logMessage("相手のピリオン：HP10で復活！"); }
-                else if (enemyChar.item === "hpBook" && !enemyGritTriggered) { enemyHp = 1; enemyGritTriggered = true; logMessage("相手の体力の書：HP1で耐えた！"); }
+                if (enemyChar.trait === "reviveTen" && !enemyGritTriggered) { enemyHp = 10; enemyGritTriggered = true; tempLog += "> ゲスト：復活特性発動！HP10で耐えた！<br>"; }
+                else if (enemyChar.item === "hpBook" && !enemyGritTriggered) { enemyHp = 1; enemyGritTriggered = true; tempLog += "> ゲスト：体力 of 書の効果でHP1で耐えた！<br>"; }
             }
 
+            playerBuffs = nextPBuffs; enemyBuffs = nextEBuffs;
+
+            // 🛠️ 位置ロックの更新処理
+            let nextPUsedIdx = (playerChar.trait === "jackKeep" && hCard === "チョキ") ? -1 : hIdx;
+            let nextEUsedIdx = (enemyChar.trait === "jackKeep" && gCard === "チョキ") ? -1 : gIdx;
+
+            roomRef.update({
+                pHp: playerHp, eHp: enemyHp,
+                pLockedCardIdx: nextPLock, eLockedCardIdx: nextELock,
+                pUsedCardIdx: nextPUsedIdx, eUsedCardIdx: nextEUsedIdx,
+                lastHostCard: hCard, lastHostCardIdx: hIdx,
+                lastGuestCard: gCard, lastGuestCardIdx: gIdx,
+                lastLog: tempLog, syncId: nextSyncId
+            });
+        }
+
+        // 🤖 ソロモード用：計算処理
+        function processTurnCalculationOnSolo(pCard, pIdx, eCard, eIdx) {
+            let tempLog = `【ターン ${currentTurn}】<br>`;
+            if (playerChar.trait === "turnHealFive") { playerHp = Math.min(playerChar.maxHp, playerHp + 5); tempLog += "> あなた(フロリエル)：HP5回復。<br>"; }
+            if (enemyChar.trait === "turnHealFive") { enemyHp = Math.min(enemyChar.maxHp, enemyHp + 5); tempLog += "> 相手(フロリエル)：HP5回復。<br>"; }
+            
+            let result = judgeJanken(pCard, eCard, playerChar.trait, enemyChar.trait);
+            let pDmg = 0, eDmg = 0;
+
+            if (result === 'player') {
+                eDmg = calculateDamage(pCard, playerChar, enemyChar, isFirstTurn, playerBuffs, eCard);
+                tempLog += `> あなたの勝利！ 相手に ${eDmg} のダメージ！<br>`;
+                if (pCard === "パー" && playerChar.trait === "silvaHeal") playerHp = Math.min(playerChar.maxHp, playerHp + 30);
+                if (pCard === "グー" && playerChar.trait === "ironNextDebuff") eLockedCardIdx = eIdx; else eLockedCardIdx = -1;
+            } else if (result === 'enemy') {
+                pDmg = calculateDamage(eCard, enemyChar, playerChar, isFirstTurn, enemyBuffs, pCard);
+                tempLog += `> 相手の勝利... ${pDmg} のダメージ！<br>`;
+                if (eCard === "パー" && enemyChar.trait === "silvaHeal") enemyHp = Math.min(enemyChar.maxHp, enemyHp + 30);
+                if (eCard === "グー" && enemyChar.trait === "ironNextDebuff") pLockedCardIdx = pIdx; else pLockedCardIdx = -1;
+            } else {
+                tempLog += "> あいこ！<br>";
+                pLockedCardIdx = -1; eLockedCardIdx = -1;
+            }
+
+            playerHp -= pDmg; enemyHp -= eDmg;
+            
+            if (playerHp <= 0 && playerChar.item === "hpBook" && !playerGritTriggered) { playerHp = 1; playerGritTriggered = true; tempLog += "> 体力 of 書の効果でHP1で耐えた！<br>"; }
+            if (enemyHp <= 0 && enemyChar.item === "hpBook" && !enemyGritTriggered) { enemyHp = 1; enemyGritTriggered = true; tempLog += "> 相手は体力 of 書の効果でHP1で耐えた！<br>"; }
+
+            pUsedCardIdx = (playerChar.trait === "jackKeep" && pCard === "チョキ") ? -1 : pIdx;
+            eUsedCardIdx = (enemyChar.trait === "jackKeep" && eCard === "チョキ") ? -1 : eIdx;
+
+            executeTurnResolveVisuals(pCard, pIdx, eCard, eIdx, tempLog);
+        }
+
+        // 🎨 同期された結果を画面に描画する（両方の画面で同時に動く演出用関数）
+        function executeTurnResolveVisuals(myHandStr, myIdx, opHandStr, opIdx, finalLog) {
+            document.getElementById("p-played-card").innerHTML = `<img src="${JANKEN_IMAGES[myHandStr]}" class="battle-hand-img">`;
+            document.getElementById("e-played-card").innerHTML = `<img src="${JANKEN_IMAGES[opHandStr]}" class="battle-hand-img">`;
+
+            document.getElementById("log-box").innerHTML = finalLog;
             syncHpUI();
-            playerBuffs = nextPlayerBuffs; enemyBuffs = nextEnemyBuffs;
-
-            if (isOnlineMode && myRole === "host" && isFirebaseAvailable) {
-                roomRef.update({ pLockedCardIdx: nextPLockedCardIdx, eLockedCardIdx: nextELockedCardIdx });
-            }
 
             if (playerHp <= 0 || enemyHp <= 0) {
-                if (isOnlineMode && myRole === "host" && isFirebaseAvailable) {
-                    const logContent = document.getElementById("log-box").innerHTML.replace(`【ターン ${currentTurn}】`, "");
-                    roomRef.update({ pHp: playerHp, eHp: enemyHp, lastHostCard: myHandStr, lastHostCardIdx: myIdx, lastGuestCard: opHandStr, lastGuestCardIdx: opIdx, lastLog: logContent, currentTurn: currentTurn });
-                }
-                setTimeout(endBattle, 1200);
+                setTimeout(endBattle, 1500);
             } else {
-                if (playerChar.trait === "jackKeep" && pHand === "チョキ") { pDisabledCardName = ""; } else { pDisabledCardName = pHand; }
-                if (enemyChar.trait === "jackKeep" && eHand === "チョキ") { eDisabledCardName = ""; } else { eDisabledCardName = eHand; }
-
-                if (isOnlineMode && myRole === "host" && isFirebaseAvailable) {
-                    const logContent = document.getElementById("log-box").innerHTML.replace(`【ターン ${currentTurn}】`, "");
-                    roomRef.update({ 
-                        pHp: playerHp,
-                        eHp: enemyHp,
-                        pDisabledCardName: pDisabledCardName, 
-                        eDisabledCardName: eDisabledCardName,
-                        lastHostCard: myHandStr,
-                        lastHostCardIdx: myIdx,
-                        lastGuestCard: opHandStr,
-                        lastGuestCardIdx: opIdx,
-                        lastLog: logContent,
-                        currentTurn: currentTurn + 1
-                    });
-                }
-
-                if (myRole === "host") {
-                    if (!(pHand === "チョキ" && playerChar.trait === "jackKeep")) { playerHand.push(playerHand.splice(pIdxReal, 1)[0]); }
-                    if (!(eHand === "チョキ" && enemyChar.trait === "jackKeep")) { enemyHand.push(enemyHand.splice(eIdxReal, 1)[0]); }
-                } else {
-                    if (!(eHand === "チョキ" && playerChar.trait === "jackKeep")) { playerHand.push(playerHand.splice(eIdxReal, 1)[0]); }
-                    if (!(pHand === "チョキ" && enemyChar.trait === "jackKeep")) { enemyHand.push(enemyHand.splice(pIdxReal, 1)[0]); }
-                }
-
                 currentTurn++; isFirstTurn = false;
                 document.querySelectorAll(".card-btn").forEach(b => b.disabled = false);
-                renderHandButtons(); 
+                renderHandButtons();
                 startTurnTimer();
             }
         }
 
         function calculateDamage(winningHand, winner, loser, isFirst, winnerBuffs, loserHand) {
             let baseAtk = winner.atk;
-            if (winner.trait === "rageDouble" && winner.hp <= (winner.maxHp / 2)) { baseAtk *= 2; }
-            if (winningHand === "グー" && winner.trait === "gambleBoost") { baseAtk *= 3; }
-            if (winnerBuffs.nextAtkMult) { baseAtk *= winnerBuffs.nextAtkMult; }
-            if (winnerBuffs.revengeAtkMult) { baseAtk *= winnerBuffs.revengeAtkMult; }
-            if (winnerBuffs.guyDebuffed) { baseAtk -= 30; }
-            if (winnerBuffs.ironDebuffed) { baseAtk *= 0.5; }
+            if (winner.trait === "rageDouble" && winner.hp <= (winner.maxHp / 2)) baseAtk *= 2;
+            if (winningHand === "グー" && winner.trait === "gambleBoost") baseAtk *= 3;
+            if (winnerBuffs.nextAtkMult) baseAtk *= winnerBuffs.nextAtkMult;
+            if (winnerBuffs.revengeAtkMult) baseAtk *= winnerBuffs.revengeAtkMult;
+            if (winnerBuffs.guyDebuffed) baseAtk -= 30;
+            if (winnerBuffs.ironDebuffed) baseAtk *= 0.5;
 
             let dmg = Math.max(1, Math.floor(baseAtk));
+            
+            // 🎒 アイテム機能：攻撃 of 書効果
             if (isFirst && winner.item === "atkBook") dmg += 15;
-            if (winningHand === "チョキ" && loser.trait === "antiScissors") { dmg = Math.max(1, dmg - 15); }
+            if (winningHand === "チョキ" && loser.trait === "antiScissors") dmg = Math.max(1, dmg - 15);
             return dmg;
         }
 
         function endBattle() {
-            clearInterval(timerInterval); 
+            clearInterval(timerInterval);
             const msgEl = document.getElementById("result-title");
             const rewardEl = document.getElementById("gold-reward-msg");
             const unlockArea = document.getElementById("unlock-area");
