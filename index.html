@@ -576,20 +576,27 @@
                 if (data.gameStarted && currentTurn > 0) {
                     pLockedCardIdx = data.pLockedCardIdx !== undefined ? data.pLockedCardIdx : -1;
                     eLockedCardIdx = data.eLockedCardIdx !== undefined ? data.eLockedCardIdx : -1;
+                  // Firebaseから最新の使用禁止カード名を取得して同期
                     pDisabledCardName = data.pDisabledCardName !== undefined ? data.pDisabledCardName : "";
                     eDisabledCardName = data.eDisabledCardName !== undefined ? data.eDisabledCardName : "";
 
+                    // 👇【修正・追加】ゲスト側の演出開始とHP強制同期
                     if (myRole === "guest") {
+                        // お互いがカードを選び終わっている（Aが処理を開始できる状態）かつ、まだゲスト側で演出が始まっていない場合
+                        if (data.hostCard && data.guestCard && document.querySelectorAll(".card-btn:not([disabled])").length > 0) {
+                            // ゲスト側でもカードを出す演出（executeTurnResolve）を強制的に実行する
+                            executeTurnResolve(data.guestCard, data.guestCardIdx, data.hostCard, data.hostCardIdx);
+                        }
+
+                        // ホストから送られてきた確定後のHPを同期する
                         if (data.pHp !== undefined) playerHp = data.pHp;
                         if (data.eHp !== undefined) enemyHp = data.eHp;
-                        updateHpDisplay(); // 画面のHPバーや数値を更新
+                        updateHpDisplay();
 
-                        // もしどちらかのHPが0以下（決着）になったら、ゲスト側も自動で終了画面へ進める
                         if (playerHp <= 0 || enemyHp <= 0) {
                             setTimeout(endBattle, 1200);
                         }
                     }
-                    // 👆【ここまで追加】
 
                     const myCard = myRole === "host" ? data.hostCard : data.guestCard;
                     const opCard = myRole === "host" ? data.guestCard : data.hostCard;
