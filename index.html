@@ -582,13 +582,15 @@
                     eDisabledCardName = data.eDisabledCardName !== undefined ? data.eDisabledCardName : "";
 
                     // 👇【修正・追加】ゲスト側の演出開始とHP強制同期
-                   // ゲスト側の演出開始とHP強制同期
+                 // ゲスト側の演出開始とHP強制同期
                     if (myRole === "guest") {
-                        // お互いがカードを選び終わっており、かつゲスト側がまだ「選択完了」のまま待機している場合
-                        // （currentTurn と data.currentTurn が同じなら、ゲスト側はまだ次のターンに進んでいない＝演出前と判断できます）
-                        if (data.hostCard && data.guestCard && currentTurn === data.currentTurn) {
-                            // ゲスト側でもカードを出す演出（executeTurnResolve）をスタート！
-                            executeTurnResolve(data.guestCard, data.guestCardIdx, data.hostCard, data.hostCardIdx);
+                        // お互いがカードを選び終わっている（データが存在する）場合
+                        if (data.hostCard && data.guestCard) {
+                            // まだ画面のカード画像が表示されていない時だけ、演出関数を実行する
+                            const pPlayed = document.getElementById("p-played-card");
+                            if (pPlayed && pPlayed.innerHTML === "") {
+                                executeTurnResolve(data.guestCard, data.guestCardIdx, data.hostCard, data.hostCardIdx);
+                            }
                         }
 
                         // ホストから送られてきた確定後のHPを同期する
