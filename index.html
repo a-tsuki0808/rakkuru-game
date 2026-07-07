@@ -582,16 +582,16 @@
                     eDisabledCardName = data.eDisabledCardName !== undefined ? data.eDisabledCardName : "";
 
                     // 👇【修正・追加】ゲスト側の演出開始とHP強制同期
-               　　// ゲスト側の演出開始とHP強制同期
+               　// ゲスト側の演出開始とHP強制同期
                     if (myRole === "guest") {
-                        // 【超シンプル化】Firebaseにお互いの選んだカードが存在しているか？
+                        // 1. Firebaseにお互いの選んだカードが揃っているか？
                         if (data.hostCard && data.guestCard) {
                             
-                            // 画面のログがまだ「相手の決定を待っています」か、あるいは「ターン」の表示になっていない場合（＝まだ演出を始めていない）
-                            const logBox = document.getElementById("log-box");
-                            const currentLog = logBox ? logBox.innerHTML : "";
+                            // 2. かつ、自分の画面の真ん中のカード表示（p-played-card）がまだ空っぽか？
+                            const pPlayed = document.getElementById("p-played-card");
+                            const hasNoCardDisplayed = pPlayed && (pPlayed.innerHTML.trim() === "" || !pPlayed.innerHTML.includes("img"));
                             
-                            if (currentLog.includes("待っています") || !currentLog.includes("ターン")) {
+                            if (hasNoCardDisplayed) {
                                 // ゲスト側でもカードを出す演出を、強制的に1回だけ実行する！
                                 executeTurnResolve(data.guestCard, data.guestCardIdx, data.hostCard, data.hostCardIdx);
                             }
@@ -609,6 +609,7 @@
                             setTimeout(endBattle, 1200);
                         }
                     }
+
 
                     const myCard = myRole === "host" ? data.hostCard : data.guestCard;
                     const opCard = myRole === "host" ? data.guestCard : data.hostCard;
