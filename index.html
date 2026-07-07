@@ -583,13 +583,13 @@
 
                     // 👇【修正・追加】ゲスト側の演出開始とHP強制同期
                    // ゲスト側の演出開始とHP強制同期
-                    // ゲスト側の演出開始とHP強制同期
                     if (myRole === "guest") {
-                        // currentLog が null や空っぽでないことを確実にチェックする
-                        const currentLog = document.getElementById("log-box") ? document.getElementById("log-box").innerHTML : "";
+                        // 1. お互いのカードが選ばれている
+                        // 2. まだ自分の手札ボタンの選択ロックが解除されていない（＝まだ演出を始めていない）
+                        // この2つの条件だけで安全に判定します
+                        const hasCardButtons = document.querySelector(".card-btn");
                         
-                        // 👇 currentLog && を追加して、中身があるときだけ includes を実行するようにガードします
-                        if (data.hostCard && data.guestCard && currentLog && currentLog.includes("相手の決定を待っています")) {
+                        if (data.hostCard && data.guestCard && hasCardButtons && !hasCardButtons.disabled) {
                             // ゲスト側でもカードを出す演出（executeTurnResolve）をスタート！
                             executeTurnResolve(data.guestCard, data.guestCardIdx, data.hostCard, data.hostCardIdx);
                         }
@@ -597,7 +597,11 @@
                         // ホストから送られてきた確定後のHPを同期する
                         if (data.pHp !== undefined) playerHp = data.pHp;
                         if (data.eHp !== undefined) enemyHp = data.eHp;
-                        updateHpDisplay();
+                        
+                        // 画面のHP表示を更新する関数（エラーが出ないよう安全に呼び出し）
+                        if (typeof updateHpDisplay === "function") {
+                            updateHpDisplay();
+                        }
 
                         if (playerHp <= 0 || enemyHp <= 0) {
                             setTimeout(endBattle, 1200);
