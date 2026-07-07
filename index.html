@@ -583,10 +583,13 @@
 
                     // 👇【修正・追加】ゲスト側の演出開始とHP強制同期
                    // ゲスト側の演出開始とHP強制同期
+                    // ゲスト側の演出開始とHP強制同期
                     if (myRole === "guest") {
-                        // お互いがカードを選び終わっていて、かつゲスト側の画面のログがまだ「相手の決定を待っています...」の時だけ演出を実行する
+                        // currentLog が null や空っぽでないことを確実にチェックする
                         const currentLog = document.getElementById("log-box") ? document.getElementById("log-box").innerHTML : "";
-                        if (data.hostCard && data.guestCard && currentLog.includes("相手の決定を待っています")) {
+                        
+                        // 👇 currentLog && を追加して、中身があるときだけ includes を実行するようにガードします
+                        if (data.hostCard && data.guestCard && currentLog && currentLog.includes("相手の決定を待っています")) {
                             // ゲスト側でもカードを出す演出（executeTurnResolve）をスタート！
                             executeTurnResolve(data.guestCard, data.guestCardIdx, data.hostCard, data.hostCardIdx);
                         }
