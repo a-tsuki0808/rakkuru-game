@@ -214,8 +214,6 @@
         .item-market { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin: 20px 0; }
         .item-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; background: #fff; text-align: left; }
 
-
-        /* 🎒 アイテム使用時の光るアニメーション */
         @keyframes item-flash {
             0% { filter: brightness(1); box-shadow: 0 0 0px transparent; }
             50% { filter: brightness(2.5); box-shadow: 0 0 20px #fff; transform: scale(1.05); }
@@ -223,6 +221,24 @@
         }
         .flash-effect {
             animation: item-flash 0.6s ease-out;
+        }
+
+        .battle-item-btn {
+            background: var(--warning-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            font-size: 0.9em;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.2s;
+            width: 80%;
+        }
+        .battle-item-btn:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
         }
     </style>
 </head>
@@ -277,7 +293,7 @@
             <div class="slot-container"><label>⚔️ スロット 1</label><select id="slot-0" class="slot-select"><option value="グー">✊ グー</option><option value="チョキ">✌️ チョキ</option><option value="パー">🖐️ パー</option></select></div>
             <div class="slot-container"><label>⚔️ スロット 2</label><select id="slot-1" class="slot-select"><option value="グー">✊ グー</option><option value="チョキ" selected>✌️ チョキ</option><option value="パー">🖐️ パー</option></select></div>
             <div class="slot-container"><label>⚔️ スロット 3</label><select id="slot-2" class="slot-select"><option value="グー">✊ グー</option><option value="チョキ">✌️ チョキ</option><option value="パー" selected>🖐️ パー</option></select></div>
-            <div class="slot-container"><label>🎒 使用アイテム</label><select id="item-select" class="slot-select" onchange="onItemSelectChange()"><option value="">なし</option><option value="telescope">望遠鏡</option><option value="spiderweb">クモの糸</option><option value="atkBook">攻撃 of 書</option><option value="hpBook">体力 of 書</option><option value="shoes">いだてんの靴</option></select></div>
+            <div class="slot-container"><label>🎒 持ち込みアイテム</label><select id="item-select" class="slot-select" onchange="onItemSelectChange()"><option value="">なし</option><option value="telescope">望遠鏡</option><option value="spiderweb">クモの糸</option><option value="atkBook">攻撃 of 書</option><option value="hpBook">体力 of 書</option><option value="shoes">いだてんの靴</option></select></div>
         </div>
 
         <div id="actual-build-inputs" style="margin-top: 25px;">
@@ -317,7 +333,10 @@
             <div class="p-ui-area">
                 <h3>手札</h3>
                 <div class="hand-container" id="player-hand-ui"></div>
-                <div id="p-item-badge" style="margin-top:15px; font-size:0.9em; color:var(--warning-color); font-weight:bold;"></div>
+                <div style="margin-top:15px; display: flex; flex-direction: column; align-items: center; width: 100%;">
+                    <div id="p-item-badge" style="font-size:0.9em; color:var(--warning-color); font-weight:bold; margin-bottom:5px;"></div>
+                    <button id="battle-item-use-btn" class="battle-item-btn" onclick="useItemInBattle()">アイテムを使用する</button>
+                </div>
             </div>
 
             <div class="logs-area">
@@ -389,33 +408,31 @@
         }
 
         const CHARACTERS = [
-            { id: 1, name: "ガイ", hp: 130, atk: 25, spd: 10, image: "char_1.png", trait: "guyDebuff", traitDesc: "グーで負けた場合攻撃を-30する。" },
-            { id: 2, name: "イグニス", hp: 100, atk: 30, spd: 15, image: "char_2.png", trait: "ignisDrawWin", traitDesc: "チョキであいこは勝ちになる" },
-            { id: 3, name: "ジャック", hp: 90, atk: 35, spd: 20, image: "char_3.png", trait: "jackKeep", traitDesc: "チョキを使っても、次のターンも使える" },
+            { id: 1, name: "ガイ", hp: 130, atk: 25, spd: 10, image: "char_1.png", trait: "guyDebuff", traitDesc: "グーで負けた場合受けるダメージを-30する" },
+            { id: 2, name: "イグニス", hp: 100, atk: 30, spd: 15, image: "char_2.png", trait: "ignisDrawWin", traitDesc: "チョキであいこだと勝ちになる" },
+            { id: 3, name: "ジャック", hp: 90, atk: 35, spd: 20, image: "char_3.png", trait: "jackKeep", traitDesc: "チョキを使っても、次のターンもそのチョキを使える" },
             { id: 4, name: "シルヴァ", hp: 110, atk: 25, spd: 12, image: "char_4.png", trait: "silvaHeal", traitDesc: "パーで勝つとHP30回復" },
             { id: 5, name: "ヴァルクス", hp: 100, atk: 20, spd: 18, image: "char_5.png", trait: "valxDouble", traitDesc: "パーで勝った場合次のターンATK2倍" },
-            { id: 6, name: "シャドウ", hp: 95, atk: 24, spd: 35, image: "char_6.png", trait: "shadowSpeed", traitDesc: "毎ターンすばやさが5上がる" },
-            { id: 7, name: "アイアン", hp: 160, atk: 18, spd: 5, image: "char_7.png", trait: "ironNextDebuff", traitDesc: "グーで勝った場合、次のターン-50%" },
-            { id: 8, name: "ギャンブラー", hp: 100, atk: 12, spd: 16, image: "char_8.png", trait: "gambleBoost", traitDesc: "グーで勝つと攻撃力3倍、負けたらSPD-5" },
-            { id: 9, name: "バーサーカー", hp: 120, atk: 20, spd: 14, image: "char_9.png", trait: "rageDouble", traitDesc: "自分のHPが半分になると、常時ATK2倍" },
+            { id: 6, name: "シャドウ", hp: 95, atk: 24, spd: 35, image: "char_6.png", trait: "shadowSpeed", traitDesc: "毎ターンSPDが5上がる" },
+            { id: 7, name: "アイアン", hp: 160, atk: 18, spd: 5, image: "char_7.png", trait: "ironNextDebuff", traitDesc: "グーで勝った場合、次のターン相手の攻撃力半減＆スロットロック" },
+            { id: 8, name: "ギャンブラー", hp: 100, atk: 12, spd: 16, image: "char_8.png", trait: "gambleBoost", traitDesc: "グーで勝つとATK3倍、じゃんけんに負けるとSPD-5" },
+            { id: 9, name: "バーサーカー", hp: 120, atk: 20, spd: 14, image: "char_9.png", trait: "rageDouble", traitDesc: "自分のHPが半分になるとATK2倍(持続)" },
             { id: 10, name: "リベンジャー", hp: 115, atk: 22, spd: 11, image: "char_10.png", trait: "revengeNext", traitDesc: "相手に攻撃された次のターンATK1.5倍" },
-            { id: 11, name: "ギアリス", hp: 100, atk: 22, spd: 15, image: "char_11.png", trait: "infiniteItem", traitDesc: "持ち込んだアイテムが無限に使える" },
+            { id: 11, name: "ギアリス", hp: 100, atk: 22, spd: 15, image: "char_11.png", trait: "infiniteItem", traitDesc: "試合中のアイテムを使える回数無限" },
             { id: 12, name: "ピリオン", hp: 90, atk: 25, spd: 12, image: "char_12.png", trait: "reviveTen", traitDesc: "HPが0になっても、一度だけHP10で復活する" },
-            { id: 13, name: "カゲマル", hp: 95, atk: 24, spd: 22, image: "char_13.png", trait: "dodgeQuarter", traitDesc: "25%の確率で相手の攻撃回避" },
-            { id: 14, name: "クラスト", hp: 120, atk: 23, spd: 10, image: "char_14.png", trait: "antiScissors", traitDesc: "相手のチョキの攻撃を-15する" },
-            { id: 15, name: "グレイヴ", hp: 85, atk: 26, spd: 14, image: "char_15.png", trait: "doubleWinForce", traitDesc: "2回連続でじゃんけんの勝つと強制勝ち" },
-            { id: 16, name: "フロリエル", hp: 110, atk: 20, spd: 11, image: "char_16.png", trait: "turnHealFive", traitDesc: "毎ターン開始時にHPを5回復する" }
+            { id: 13, name: "カゲマル", hp: 95, atk: 24, spd: 22, image: "char_13.png", trait: "dodgeQuarter", traitDesc: "25%の確率で攻撃回避" },
+            { id: 14, name: "クラスト", hp: 120, atk: 23, spd: 10, image: "char_14.png", trait: "antiScissors", traitDesc: "相手のチョキの攻撃を-15" },
+            { id: 15, name: "グレイヴ", hp: 85, atk: 26, spd: 14, image: "char_15.png", trait: "doubleWinForce", traitDesc: "2回連続でじゃんけんに勝つと強制勝ち" },
+            { id: 16, name: "フロリエル", hp: 110, atk: 20, spd: 11, image: "char_16.png", trait: "turnHealFive", traitDesc: "毎ターン開始時にHP5回復" }
         ];
 
         const JANKEN_IMAGES = { "パー": "janken1.png", "チョキ": "janken2.png", "グー": "janken3.png" };
+        const ITEM_NAMES = { "telescope": "望遠鏡", "spiderweb": "クモの糸", "atkBook": "攻撃 of 書", "hpBook": "体力 of 書", "shoes": "いだてんの靴" };
 
         let unlockedIds = JSON.parse(localStorage.getItem('luckl_unlocked')) || [1]; 
         let userGold = parseInt(localStorage.getItem('luckl_gold')) || 0;
         let inventory = JSON.parse(localStorage.getItem('luckl_inventory')) || { telescope: 0, spiderweb: 0, atkBook: 0, hpBook: 0, shoes: 0 };
         let profileName = localStorage.getItem('luckl_profile_name') || "プレイヤー";
-
-        // 試合ごとのアイテム使用回数をカウントする変数（セーブはせず一試合ごとにリセット）
-        let itemUseCount = parseInt(localStorage.getItem('luckl_item_use_count')) || 0;
 
         let isOnlineMode = false;
         let currentRoomId = null;
@@ -428,7 +445,6 @@
         let playerHand = []; let enemyHand = [];
         let currentTurn = 0; let chosenItemKey = ""; 
         let timerInterval = null; let timeLeft = 30;
-        let isFirstTurn = true;
         let playerGritTriggered = false; let enemyGritTriggered = false;
         
         let pUsedCardIdx = -1; 
@@ -436,8 +452,12 @@
         let pLockedCardIdx = -1; 
         let eLockedCardIdx = -1;
 
-        let playerBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: 0 };
-        let enemyBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: 0 };
+        // 🎒 ターンバフ状態の初期化
+        let pState = { winStreak: 0, nextAtkMult: 1, valxBuffer: false, ironDebuffActive: false, hitLastTurn: false, itemUsedThisTurn: "", gambleDebuffActive: false };
+        let eState = { winStreak: 0, nextAtkMult: 1, valxBuffer: false, ironDebuffActive: false, hitLastTurn: false, itemUsedThisTurn: "", gambleDebuffActive: false };
+
+        let isItemTriggeredThisTurn = false;
+        let itemUseCount = 0;
 
         window.onload = function() {
             document.getElementById("player-profile-name").value = profileName;
@@ -513,13 +533,13 @@
             currentRoomId = roomNum;
             roomRef = database.ref("rooms/" + currentRoomId);
 
-            // 部屋作成時にHP等も含めすべて初期クリア
             roomRef.set({
                 hostName: profileName, hostReady: false, hostCard: "", hostCardIdx: -1,
                 guestName: "", guestReady: false, guestCard: "", guestCardIdx: -1,
-                pHp: 100, eHp: 100, // 相手のHP初期化（一例）
+                pHp: 100, eHp: 100, 
                 gameStarted: false, currentTurn: 0, pLockedCardIdx: -1, eLockedCardIdx: -1,
-                pUsedCardIdx: -1, eUsedCardIdx: -1, lastLog: "", syncId: 0
+                pUsedCardIdx: -1, eUsedCardIdx: -1, lastLog: "", syncId: 0,
+                hostItemTriggered: "", guestItemTriggered: ""
             }).then(() => {
                 document.getElementById("connection-status-text").innerText = `🏠 部屋「${roomNum}」を作成しました。相手を待っています...`;
                 setupRoomListener();
@@ -538,7 +558,6 @@
 
             roomRef.once("value").then(snapshot => {
                 if (!snapshot.exists()) return alert("部屋が見つかりません。");
-                // 入室時にゲストの準備状態を確実にリセット
                 roomRef.update({ guestName: profileName, guestReady: false }).then(() => {
                     document.getElementById("connection-status-text").innerText = `🚪 部屋「${roomNum}」に入室しました！`;
                     setupRoomListener();
@@ -564,12 +583,11 @@
                     document.getElementById("main-fight-btn").disabled = false;
                 }
 
-                // 【バグ修正③対策】お互いが揃った瞬間、ホスト側がゲーム開始フラグと「お互いの最大HP」をフル状態で書き込む
                 if (data.hostReady && data.guestReady && !data.gameStarted && myRole === "host") {
                     roomRef.update({
                         gameStarted: true,
-                        pHp: data.hostChar.hp,  // ホストのHPをフルに
-                        eHp: data.guestChar.hp  // ゲストのHPをフルに
+                        pHp: data.hostChar.hp,  
+                        eHp: data.guestChar.hp  
                     });
                 }
 
@@ -578,7 +596,6 @@
                     enemyChar = JSON.parse(JSON.stringify(myRole === "host" ? data.guestChar : data.hostChar));
                     enemyHand = myRole === "host" ? data.guestHand : data.hostHand;
                     
-                    // 【バグ修正③対策】画面立ち上げ直前に、Firebaseから配信された満タンのHPを各自のローカルに同期
                     if (myRole === "host") {
                         playerHp = data.pHp;
                         enemyHp = data.eHp;
@@ -595,6 +612,17 @@
                     eLockedCardIdx = data.eLockedCardIdx !== undefined ? data.eLockedCardIdx : -1;
                     pUsedCardIdx = data.pUsedCardIdx !== undefined ? data.pUsedCardIdx : -1;
                     eUsedCardIdx = data.eUsedCardIdx !== undefined ? data.eUsedCardIdx : -1;
+
+                    if (myRole === "host" && data.guestItemTriggered !== "") {
+                        eState.itemUsedThisTurn = data.guestItemTriggered;
+                        handleItemInstantEffect("enemy", data.guestItemTriggered);
+                        roomRef.update({ guestItemTriggered: "" });
+                    }
+                    if (myRole === "guest" && data.hostItemTriggered !== "") {
+                        eState.itemUsedThisTurn = data.hostItemTriggered;
+                        handleItemInstantEffect("enemy", data.hostItemTriggered);
+                        roomRef.update({ hostItemTriggered: "" });
+                    }
 
                     if (data.syncId > lastHandledSyncId && data.lastHostCard && data.lastGuestCard) {
                         lastHandledSyncId = data.syncId;
@@ -616,13 +644,7 @@
                     }
 
                     if (myRole === "host" && data.hostCard && data.guestCard) {
-                        let hCard = data.hostCard;
-                        let gCard = data.guestCard;
-                        let hIdx = data.hostCardIdx;
-                        let gIdx = data.guestCardIdx;
-
-                        roomRef.update({ hostCard: "", guestCard: "" }); 
-                        processTurnCalculationOnHost(hCard, hIdx, gCard, gIdx, data.syncId + 1);
+                        processTurnCalculation(data.hostCard, data.hostCardIdx, data.guestCard, data.guestCardIdx, data.syncId + 1);
                     }
                 }
             });
@@ -674,15 +696,6 @@
             const baseChar = CHARACTERS.find(c => c.id === selectedCharId);
             if (!baseChar) return;
 
-            // 新しい試合が始まるタイミングで、試合ごとのアイテム使用回数制限チェック
-            if (chosenItemKey && chosenItemKey !== "") {
-                if (itemUseCount >= 2) {
-                    alert("⚠️ アイテムは一試合2回までしか使用できません！アイテムを外して戦闘を開始します。");
-                    document.getElementById("item-select").value = "";
-                    chosenItemKey = "";
-                }
-            }
-
             playerChar = JSON.parse(JSON.stringify(baseChar));
             playerHand = [
                 document.getElementById("slot-0").value,
@@ -692,25 +705,18 @@
             playerHp = playerChar.hp;
             playerChar.maxHp = playerChar.hp;
             currentTurn = 0; 
-            pLockedCardIdx = -1; eLockedCardIdx = -1;
-            pUsedCardIdx = -1; eUsedCardIdx = -1;
 
-            playerBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: 0 };
-            enemyBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: 0 };
+            pState = { winStreak: 0, nextAtkMult: 1, valxBuffer: false, ironDebuffActive: false, hitLastTurn: false, itemUsedThisTurn: "", gambleDebuffActive: false };
+            eState = { winStreak: 0, nextAtkMult: 1, valxBuffer: false, ironDebuffActive: false, hitLastTurn: false, itemUsedThisTurn: "", gambleDebuffActive: false };
 
             let usedItem = "none";
             if (chosenItemKey && inventory[chosenItemKey] > 0) {
-                // 特性「infiniteItem」でなければ、アイテムの在庫を減らす
+                // 11: ギアリスの特性（アイテム無限）でない場合のみ消費
                 if (playerChar.trait !== "infiniteItem") {
                     inventory[chosenItemKey]--;
                     localStorage.setItem('luckl_inventory', JSON.stringify(inventory));
                 }
                 usedItem = chosenItemKey;
-                if (usedItem === "shoes") playerChar.spd += 30;
-
-                // 【バグ修正①対策】使用制限カウントを加算し保存
-                itemUseCount++;
-                localStorage.setItem('luckl_item_use_count', itemUseCount);
             }
             playerChar.item = usedItem;
 
@@ -739,7 +745,6 @@
             
             const items = ["none", "telescope", "spiderweb", "atkBook", "hpBook", "shoes"];
             enemyChar.item = items[Math.floor(Math.random() * items.length)];
-            if (enemyChar.item === "shoes") enemyChar.spd += 30;
 
             const rOpts = ["グー", "チョキ", "パー"];
             enemyHand = [rOpts[Math.floor(Math.random() * 3)], rOpts[Math.floor(Math.random() * 3)], rOpts[Math.floor(Math.random() * 3)]];
@@ -753,26 +758,93 @@
             document.getElementById("p-name").innerText = profileName;
             document.getElementById("p-maxhp").innerText = playerChar.maxHp;
             document.getElementById("p-trait-desc").innerText = "特性: " + playerChar.traitDesc;
-            document.getElementById("p-item-badge").innerText = playerChar.item !== "none" ? `🎒 使用中: ${playerChar.item}` : "🎒 アイテムなし";
-            document.getElementById("p-played-card").innerHTML = "";
+            document.getElementById("p-item-badge").innerText = playerChar.item !== "none" ? `🎒 持ち込み: ${ITEM_NAMES[playerChar.item]}` : "🎒 アイテムなし";
 
             document.getElementById("e-img").src = enemyChar.image;
             document.getElementById("e-name").innerText = isOnlineMode ? (myRole === "host" ? "ゲスト" : "ホスト") : enemyChar.name + " (AI)";
             document.getElementById("e-maxhp").innerText = enemyChar.maxHp;
             document.getElementById("e-trait-desc").innerText = "特性: " + enemyChar.traitDesc;
+            
             document.getElementById("p-played-card").innerHTML = "";
             document.getElementById("e-played-card").innerHTML = "";
 
-            isFirstTurn = true;
             playerGritTriggered = false; enemyGritTriggered = false;
             pUsedCardIdx = -1; eUsedCardIdx = -1;
             pLockedCardIdx = -1; eLockedCardIdx = -1;
 
             document.getElementById("log-box").innerHTML = "バトル開始！カードを選択してください。";
             
+            itemUseCount = 0;
+            isItemTriggeredThisTurn = false;
+            updateBattleItemButtonUI();
+
             syncHpUI();
             renderHandButtons();
             startTurnTimer();
+        }
+
+        function updateBattleItemButtonUI() {
+            const btn = document.getElementById("battle-item-use-btn");
+            if (!btn) return;
+
+            if (playerChar.item === "none" || playerChar.item === "") {
+                btn.innerText = "アイテムなし";
+                btn.disabled = true;
+            } else if (itemUseCount >= 2 && playerChar.trait !== "infiniteItem") { // 11:ギアリスは回数制限も無視
+                btn.innerText = "使用回数上限 (2回)";
+                btn.disabled = true;
+            } else if (isItemTriggeredThisTurn) {
+                btn.innerText = "今ターン使用済み";
+                btn.disabled = true;
+            } else {
+                btn.innerText = "アイテムを使用する";
+                btn.disabled = false;
+            }
+        }
+
+        function handleItemInstantEffect(target, itemKey) {
+            const isPlayer = (target === "player");
+            const logBox = document.getElementById("log-box");
+            const nameStr = isPlayer ? "あなた" : "相手";
+            
+            logBox.innerHTML += `<br><span style="color:var(--warning-color);">★${nameStr}がアイテム【${ITEM_NAMES[itemKey]}】を使用！(このターンのみ有効)</span>`;
+            
+            const boxId = isPlayer ? "p-avatar-box" : "e-avatar-box";
+            const box = document.getElementById(boxId);
+            if (box) {
+                box.classList.remove("flash-effect"); void box.offsetWidth; box.classList.add("flash-effect");
+            }
+
+            if (itemKey === "telescope") {
+                const targetHand = isPlayer ? enemyHand : playerHand;
+                logBox.innerHTML += `<br><span style="color:#9c27b0;">👁️ 望遠鏡の効果！ ${isPlayer ? '相手' : 'あなた'} の手札：[${targetHand.join(", ")}]</span>`;
+            }
+        }
+
+        function useItemInBattle() {
+            if (playerChar.item === "none" || playerChar.item === "") return alert("使用できるアイテムを持っていません。");
+            if (itemUseCount >= 2 && playerChar.trait !== "infiniteItem") return alert("アイテムは一試合に2回までしか使えません！");
+            if (isItemTriggeredThisTurn) return alert("このターンはすでにアイテムを使用しています。");
+
+            itemUseCount++;
+            isItemTriggeredThisTurn = true;
+            pState.itemUsedThisTurn = playerChar.item;
+
+            handleItemInstantEffect("player", playerChar.item);
+
+            if (isOnlineMode && roomRef) {
+                if (myRole === "host") {
+                    roomRef.update({ hostItemTriggered: playerChar.item });
+                } else {
+                    roomRef.update({ guestItemTriggered: playerChar.item });
+                }
+            } else {
+                if (enemyChar.item !== "none" && Math.random() < 0.3 && eState.itemUsedThisTurn === "") {
+                    eState.itemUsedThisTurn = enemyChar.item;
+                    handleItemInstantEffect("enemy", enemyChar.item);
+                }
+            }
+            updateBattleItemButtonUI();
         }
 
         function syncHpUI() {
@@ -792,7 +864,6 @@
             playerHand.forEach((handName, idx) => {
                 const btn = document.createElement("button");
                 btn.className = "card-btn";
-                
                 if (idx === myLockIdx || idx === myUsedIdx) {
                     btn.classList.add("locked-card");
                 }
@@ -805,11 +876,6 @@
         function startTurnTimer() {
             clearInterval(timerInterval);
             timeLeft = 30;
-            
-            if (isFirstTurn) {
-                if (playerChar.item === "telescope") timeLeft = 45; 
-                if (enemyChar.item === "spiderweb") timeLeft = 15; 
-            }
             document.getElementById("turn-timer").innerText = `⏱️ ${timeLeft}`;
 
             timerInterval = setInterval(() => {
@@ -832,11 +898,12 @@
             const myLockIdx = (myRole === "guest") ? eLockedCardIdx : pLockedCardIdx;
             const myUsedIdx = (myRole === "guest") ? eUsedCardIdx : pUsedCardIdx;
 
-            if (idx === myLockIdx) return alert("このスロットはアイアンの特性でロックされています！");
-            if (idx === myUsedIdx) return alert("このスロットのカードは前のターンに使用したため連続で使えません！");
+            if (idx === myLockIdx) return alert("特性ロック中です！");
+            if (idx === myUsedIdx) return alert("連続使用ロック中です！");
 
             clearInterval(timerInterval);
             document.querySelectorAll(".card-btn").forEach(b => b.disabled = true);
+            document.getElementById("battle-item-use-btn").disabled = true;
 
             const chosenHand = playerHand[idx];
 
@@ -853,12 +920,12 @@
                     aiIdx = Math.floor(Math.random() * 3); 
                 }
                 const aiHand = enemyHand[aiIdx];
-                
-                processTurnCalculationOnSolo(chosenHand, idx, aiHand, aiIdx);
+                processTurnCalculation(chosenHand, idx, aiHand, aiIdx, 0);
             }
         }
 
         function judgeJanken(p, e, pTrait, eTrait) {
+            // 2: イグニス特性（チョキであいこは勝ち）
             if (p === "チョキ" && e === "チョキ") {
                 if (pTrait === "ignisDrawWin" && eTrait !== "ignisDrawWin") return 'player';
                 if (eTrait === "ignisDrawWin" && pTrait !== "ignisDrawWin") return 'enemy';
@@ -868,138 +935,169 @@
             return 'enemy';
         }
 
-        // 👑 オンライン用：ホスト側（A）で行う絶対的な勝敗・ダメージ・バフデバフ計算
-        function processTurnCalculationOnHost(hCard, hIdx, gCard, gIdx, nextSyncId) {
+        function processTurnCalculation(hCard, hIdx, gCard, gIdx, nextSyncId) {
             let tempLog = `【ターン ${currentTurn}】<br>`;
             
-            if (playerChar.trait === "turnHealFive") { playerHp = Math.min(playerChar.maxHp, playerHp + 5); tempLog += "> ホスト(フロリエル)：HP5回復。<br>"; }
-            if (enemyChar.trait === "turnHealFive") { enemyHp = Math.min(enemyChar.maxHp, enemyHp + 5); tempLog += "> ゲスト(フロリエル)：HP5回復。<br>"; }
-            if (playerChar.trait === "shadowSpeed") { playerChar.spd += 5; tempLog += "> ホスト(シャドウ)：SPD+5。<br>"; }
-            if (enemyChar.trait === "shadowSpeed") { enemyChar.spd += 5; tempLog += "> ゲスト(シャドウ)：SPD+5。<br>"; }
+            // 16: フロリエル特性（ターン開始時HP5回復）
+            if (playerChar.trait === "turnHealFive") { playerHp = Math.min(playerChar.maxHp, playerHp + 5); tempLog += `> あなた(フロリエル)の特性：HP5回復！<br>`; }
+            if (enemyChar.trait === "turnHealFive") { enemyHp = Math.min(enemyChar.maxHp, enemyHp + 5); tempLog += `> 相手(フロリエル)の特性：HP5回復！<br>`; }
+
+            // 6: シャドウ特性（毎ターンSPD+5）
+            if (playerChar.trait === "shadowSpeed") { playerChar.spd += 5; tempLog += `> あなた(シャドウ)の特性：SPD+5！<br>`; }
+            if (enemyChar.trait === "shadowSpeed") { enemyChar.spd += 5; tempLog += `> 相手(シャドウ)の特性：SPD+5！<br>`; }
+
+            // 🎒 アイテンによる速度一時変化（そのターンのみ）
+            let pFinalSpd = playerChar.spd;
+            let eFinalSpd = enemyChar.spd;
+            if (pState.itemUsedThisTurn === "shoes") pFinalSpd += 20;
+            if (eState.itemUsedThisTurn === "shoes") eFinalSpd += 20;
+            if (pState.itemUsedThisTurn === "spiderweb") eFinalSpd = Math.max(0, eFinalSpd - 10);
+            if (eState.itemUsedThisTurn === "spiderweb") pFinalSpd = Math.max(0, pFinalSpd - 10);
+
+            // 8: ギャンブラー敗北ペナルティ適用（SPD-5）
+            if (pState.gambleDebuffActive) pFinalSpd = Math.max(0, pFinalSpd - 5);
+            if (eState.gambleDebuffActive) eFinalSpd = Math.max(0, eFinalSpd - 5);
 
             let result = judgeJanken(hCard, gCard, playerChar.trait, enemyChar.trait);
             
-            // 【バグ修正②対策】じゃんけんがあいこの場合、すばやさで勝敗を決める
             if (result === 'draw') {
-                if (playerChar.spd > enemyChar.spd) {
+                if (pFinalSpd > eFinalSpd) {
                     result = 'player';
-                    tempLog += `⚡ あいこ！すばやさ勝負でホストが先制攻撃！ (ホスト:${playerChar.spd} vs ゲスト:${enemyChar.spd})<br>`;
-                } else if (enemyChar.spd > playerChar.spd) {
+                    tempLog += `⚡ あいこ！SPD勝負であなたが先制！ (${pFinalSpd} vs ${eFinalSpd})<br>`;
+                } else if (eFinalSpd > pFinalSpd) {
                     result = 'enemy';
-                    tempLog += `⚡ あいこ！すばやさ勝負でゲストが先制攻撃！ (ホスト:${playerChar.spd} vs ゲスト:${enemyChar.spd})<br>`;
+                    tempLog += `⚡ あいこ！SPD勝負で相手が先制！ (${pFinalSpd} vs ${eFinalSpd})<br>`;
                 }
             }
 
             let pDmg = 0, eDmg = 0;
-            let hDodged = (playerChar.trait === "dodgeQuarter" && Math.random() < 0.25);
-            let gDodged = (enemyChar.trait === "dodgeQuarter" && Math.random() < 0.25);
+            // 13: カゲマル特性（25%の確率で完全回避）
+            let pDodged = (playerChar.trait === "dodgeQuarter" && Math.random() < 0.25);
+            let eDodged = (enemyChar.trait === "dodgeQuarter" && Math.random() < 0.25);
 
-            let nextPBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: playerBuffs.winStreak };
-            let nextEBuffs = { nextAtkMult: 1, guyDebuffed: false, ironDebuffed: false, revengeAtkMult: 1, winStreak: enemyBuffs.winStreak };
             let nextPLock = -1, nextELock = -1;
 
-            if (result === 'player') { 
-                playerBuffs.winStreak++; enemyBuffs.winStreak = 0;
-                if (gDodged) { tempLog += "> ゲストが攻撃を回避！<br>"; }
-                else {
-                    eDmg = calculateDamage(hCard, playerChar, enemyChar, isFirstTurn, playerBuffs, gCard);
-                    if (playerChar.trait === "doubleWinForce" && playerBuffs.winStreak >= 2) { eDmg = enemyHp; tempLog += "> ホスト(グレイヴ)：2連勝による強制一撃必殺！<br>"; }
-                    tempLog += `> ホストの勝利！ ゲストへ ${eDmg} のダメージ！<br>`;
-                    if (hCard === "パー" && playerChar.trait === "silvaHeal") { playerHp = Math.min(playerChar.maxHp, playerHp + 30); tempLog += "> ホスト(シルヴァ)：HP30回復。<br>"; }
-                    if (hCard === "パー" && playerChar.trait === "valxDouble") { nextPBuffs.nextAtkMult = 2; tempLog += "> ホスト(ヴァルクス)：次ターンATK2倍！<br>"; }
-                    if (hCard === "グー" && playerChar.trait === "ironNextDebuff") { nextEBuffs.ironDebuffed = true; nextELock = gIdx; tempLog += "> ホスト(アイアン)：相手の次ATK半減＆スロットロック！<br>"; }
+            if (result === 'player') {
+                pState.winStreak++; eState.winStreak = 0;
+                if (eDodged) {
+                    tempLog += `> 相手(カゲマル)の特性：25%の確率で攻撃を回避された！<br>`;
+                } else {
+                    let atk = playerChar.atk;
+                    // 9: バーサーカー特性（HP半分以下で常時ATK2倍）
+                    if (playerChar.trait === "rageDouble" && playerHp <= (playerChar.maxHp / 2)) atk *= 2;
+                    // 8: ギャンブラー特性（グーで勝つとATK3倍）
+                    if (hCard === "グー" && playerChar.trait === "gambleBoost") atk *= 3;
+                    // 5: ヴァルクスバフ（パーで勝った次ターンATK2倍）
+                    if (pState.valxBuffer) { atk *= 2; pState.valxBuffer = false; }
+                    // 10: リベンジャー特性（攻撃された次ターンATK1.5倍）
+                    if (pState.hitLastTurn && playerChar.trait === "revengeNext") atk *= 1.5;
+                    // 🎒 アイテム【攻撃の書】（ATK2倍）
+                    if (pState.itemUsedThisTurn === "atkBook") atk *= 2;
+                    // 7: アイアンデバフ（攻撃力半減）
+                    if (pState.ironDebuffActive) { atk *= 0.5; pState.ironDebuffActive = false; }
+
+                    let dmg = Math.max(1, Math.floor(atk));
+                    // 14: クラスド特性（相手のチョキ攻撃を-15）
+                    if (gCard === "チョキ" && enemyChar.trait === "antiScissors") dmg = Math.max(1, dmg - 15);
+
+                    // 1: ガイ特性（グーで負けた場合ダメージ-30）
+                    if (gCard === "グー" && enemyChar.trait === "guyDebuff") dmg = Math.max(0, dmg - 30);
+
+                    // 15: グレイヴ特性（2連続勝利で強制勝ち）
+                    if (playerChar.trait === "doubleWinForce" && pState.winStreak >= 2) {
+                        dmg = enemyHp;
+                        tempLog += `> あなた(グレイヴ)の特性：2連勝により強制一撃必殺！<br>`;
+                    }
+
+                    eDmg = dmg;
+                    tempLog += `> あなたの勝利！ 相手に ${eDmg} のダメージ！<br>`;
+
+                    // 勝利時発動処理
+                    if (hCard === "パー" && playerChar.trait === "silvaHeal") { playerHp = Math.min(playerChar.maxHp, playerHp + 30); tempLog += `> あなた(シルヴァ)の特性：HP30回復！<br>`; }
+                    if (hCard === "パー" && playerChar.trait === "valxDouble") { pState.valxBuffer = true; tempLog += `> あなた(ヴァルクス)の特性：次のターンの攻撃力2倍ストック！<br>`; }
+                    if (hCard === "グー" && playerChar.trait === "ironNextDebuff") { eState.ironDebuffActive = true; nextELock = gIdx; tempLog += `> あなた(アイアン)の特性：相手の次ターン攻撃半減＆スロットロック！<br>`; }
                 }
-                if (!gDodged && eDmg > 0) nextEBuffs.revengeAtkMult = 1.5;
-            } else if (result === 'enemy') { 
-                enemyBuffs.winStreak++; playerBuffs.winStreak = 0;
-                if (hDodged) { tempLog += "> ホストが攻撃を回避！<br>"; }
-                else {
-                    pDmg = calculateDamage(gCard, enemyChar, playerChar, isFirstTurn, enemyBuffs, hCard);
-                    if (enemyChar.trait === "doubleWinForce" && enemyBuffs.winStreak >= 2) { pDmg = playerHp; tempLog += "> ゲスト(グレイヴ)：2連勝による強制一撃必殺！<br>"; }
-                    tempLog += `> ゲストの勝利！ ホストへ ${pDmg} のダメージ！<br>`;
-                    if (gCard === "パー" && enemyChar.trait === "silvaHeal") { enemyHp = Math.min(enemyChar.maxHp, enemyHp + 30); tempLog += "> ゲスト(シルヴァ)：HP30回復。<br>"; }
-                    if (gCard === "パー" && enemyChar.trait === "valxDouble") { nextEBuffs.nextAtkMult = 2; tempLog += "> ゲスト(ヴァルクス)：次ターンATK2倍！<br>"; }
-                    if (gCard === "グー" && enemyChar.trait === "ironNextDebuff") { nextPBuffs.ironDebuffed = true; nextPLock = hIdx; tempLog += "> ゲスト(アイアン)：相手の次ATK半減＆スロットロック！<br>"; }
+                
+                // 8: ギャンブラー敗北ペナルティフラグ（負けるとSPD-5）
+                if (enemyChar.trait === "gambleBoost") eState.gambleDebuffActive = true; 
+
+                eState.hitLastTurn = true; pState.hitLastTurn = false;
+
+            } else if (result === 'enemy') {
+                eState.winStreak++; pState.winStreak = 0;
+                if (pDodged) {
+                    tempLog += `> あなた(カゲマル)の特性：25%の確率で相手の攻撃を完全回避した！<br>`;
+                } else {
+                    let atk = enemyChar.atk;
+                    if (enemyChar.trait === "rageDouble" && enemyHp <= (enemyChar.maxHp / 2)) atk *= 2;
+                    if (gCard === "グー" && enemyChar.trait === "gambleBoost") atk *= 3;
+                    if (eState.valxBuffer) { atk *= 2; eState.valxBuffer = false; }
+                    if (eState.hitLastTurn && enemyChar.trait === "revengeNext") atk *= 1.5;
+                    if (eState.itemUsedThisTurn === "atkBook") atk *= 2;
+                    if (eState.ironDebuffActive) { atk *= 0.5; eState.ironDebuffActive = false; }
+
+                    let dmg = Math.max(1, Math.floor(atk));
+                    if (hCard === "チョキ" && playerChar.trait === "antiScissors") dmg = Math.max(1, dmg - 15);
+                    if (hCard === "グー" && playerChar.trait === "guyDebuff") dmg = Math.max(0, dmg - 30);
+
+                    if (enemyChar.trait === "doubleWinForce" && eState.winStreak >= 2) {
+                        dmg = playerHp;
+                        tempLog += `> 相手(グレイヴ)の特性：2連勝により強制一撃必殺！<br>`;
+                    }
+
+                    pDmg = dmg;
+                    tempLog += `> 相手の勝利！ あなたに ${pDmg} のダメージ！<br>`;
+
+                    if (gCard === "パー" && enemyChar.trait === "silvaHeal") { enemyHp = Math.min(enemyChar.maxHp, enemyHp + 30); tempLog += `> 相手(シルヴァ)の特性：HP30回復！<br>`; }
+                    if (gCard === "パー" && enemyChar.trait === "valxDouble") { eState.valxBuffer = true; tempLog += `> 相手(ヴァルクス)の特性：次のターンの攻撃力2倍ストック！<br>`; }
+                    if (gCard === "グー" && enemyChar.trait === "ironNextDebuff") { pState.ironDebuffActive = true; nextPLock = hIdx; tempLog += `> 相手(アイアン)の特性：あなたの次ターン攻撃半減＆スロットロック！<br>`; }
                 }
-                if (hCard === "グー" && playerChar.trait === "guyDebuff") { nextPBuffs.guyDebuffed = true; tempLog += "> ホスト(ガイ)：攻撃減少デバフ。<br>"; }
-                if (playerChar.trait === "gambleBoost" && hCard === "グー") { playerChar.spd = Math.max(0, playerChar.spd - 5); }
-                if (!hDodged && pDmg > 0) nextPBuffs.revengeAtkMult = 1.5;
+
+                if (playerChar.trait === "gambleBoost") pState.gambleDebuffActive = true;
+
+                pState.hitLastTurn = true; eState.hitLastTurn = false;
             } else {
-                tempLog += "> あいこ！(すばやさも同値) ダメージなし。<br>";
-                playerBuffs.winStreak = 0; enemyBuffs.winStreak = 0;
+                tempLog += "> あいこ！ダメージはありません。<br>";
+                pState.winStreak = 0; eState.winStreak = 0;
+                pState.hitLastTurn = false; eState.hitLastTurn = false;
             }
 
             playerHp -= pDmg; enemyHp -= eDmg;
 
+            // 💀 復活処理 ＆ 🎒 アイテム【体力の書】効果（HP1残し耐え）
             if (playerHp <= 0) {
-                if (playerChar.trait === "reviveTen" && !playerGritTriggered) { playerHp = 10; playerGritTriggered = true; tempLog += "> ホスト：復活特性発動！HP10で耐えた！<br>"; }
-                else if (playerChar.item === "hpBook" && !playerGritTriggered) { playerHp = 1; playerGritTriggered = true; tempLog += "> ホスト：体力 of 書の効果でHP1で耐えた！<br>"; }
+                // 12: ピリオン特性（一度だけHP10で復活）
+                if (playerChar.trait === "reviveTen" && !playerGritTriggered) { playerHp = 10; playerGritTriggered = true; tempLog += `> あなた(ピリオン)の特性：一度だけHP10で奇跡の復活！<br>`; }
+                // 🎒 体力の書
+                else if (pState.itemUsedThisTurn === "hpBook" && !playerGritTriggered) { playerHp = 1; playerGritTriggered = true; tempLog += `> 🎒 あなたの【体力 of 書】の効果！HP 1 で踏みとどまった！<br>`; }
             }
             if (enemyHp <= 0) {
-                if (enemyChar.trait === "reviveTen" && !enemyGritTriggered) { enemyHp = 10; enemyGritTriggered = true; tempLog += "> ゲスト：復活特性発動！HP10で耐えた！<br>"; }
-                else if (enemyChar.item === "hpBook" && !enemyGritTriggered) { enemyHp = 1; enemyGritTriggered = true; tempLog += "> ゲスト：体力 of 書の効果でHP1で耐えた！<br>"; }
+                if (enemyChar.trait === "reviveTen" && !enemyGritTriggered) { enemyHp = 10; enemyGritTriggered = true; tempLog += `> 相手(ピリオン)の特性：一度だけHP10で奇跡の復活！<br>`; }
+                else if (eState.itemUsedThisTurn === "hpBook" && !enemyGritTriggered) { enemyHp = 1; enemyGritTriggered = true; tempLog += `> 🎒 相手の【体力 of 書】の効果！HP 1 で踏みとどまった！<br>`; }
             }
 
-            playerBuffs = nextPBuffs; enemyBuffs = nextEBuffs;
+            // 3: ジャック特性（チョキを使っても次のターンそのチョキを使える＝連続制限なし）
+            pUsedCardIdx = (playerChar.trait === "jackKeep" && hCard === "チョキ") ? -1 : hIdx;
+            eUsedCardIdx = (enemyChar.trait === "jackKeep" && gCard === "チョキ") ? -1 : gIdx;
+            pLockedCardIdx = nextPLock;
+            eLockedCardIdx = nextELock;
 
-            let nextPUsedIdx = (playerChar.trait === "jackKeep" && hCard === "チョキ") ? -1 : hIdx;
-            let nextEUsedIdx = (enemyChar.trait === "jackKeep" && gCard === "チョキ") ? -1 : gIdx;
+            // 🎒 そのターン限りのアイテムバフを終了
+            pState.itemUsedThisTurn = "";
+            eState.itemUsedThisTurn = "";
 
-            roomRef.update({
-                pHp: playerHp, eHp: enemyHp,
-                pLockedCardIdx: nextPLock, eLockedCardIdx: nextELock,
-                pUsedCardIdx: nextPUsedIdx, eUsedCardIdx: nextEUsedIdx,
-                lastHostCard: hCard, lastHostCardIdx: hIdx,
-                lastGuestCard: gCard, lastGuestCardIdx: gIdx,
-                lastLog: tempLog, syncId: nextSyncId
-            });
-        }
-
-        // 🤖 ソロモード用：計算処理
-        function processTurnCalculationOnSolo(pCard, pIdx, eCard, eIdx) {
-            let tempLog = `【ターン ${currentTurn}】<br>`;
-            if (playerChar.trait === "turnHealFive") { playerHp = Math.min(playerChar.maxHp, playerHp + 5); tempLog += "> あなた(フロリエル)：HP5回復。<br>"; }
-            if (enemyChar.trait === "turnHealFive") { enemyHp = Math.min(enemyChar.maxHp, enemyHp + 5); tempLog += "> 相手(フロリエル)：HP5回復。<br>"; }
-            
-            let result = judgeJanken(pCard, eCard, playerChar.trait, enemyChar.trait);
-            
-            // 【バグ修正②対策】じゃんけんがあいこの場合、すばやさで勝敗を決める（ソロ）
-            if (result === 'draw') {
-                if (playerChar.spd > enemyChar.spd) {
-                    result = 'player';
-                    tempLog += `⚡ あいこ！すばやさ勝負であなたの先制攻撃！ (あなた:${playerChar.spd} vs 相手:${enemyChar.spd})<br>`;
-                } else if (enemyChar.spd > playerChar.spd) {
-                    result = 'enemy';
-                    tempLog += `⚡ あいこ！すばやさ勝負で相手の先制攻撃！ (あなた:${playerChar.spd} vs 相手:${enemyChar.spd})<br>`;
-                }
+            if (isOnlineMode && myRole === "host") {
+                roomRef.update({
+                    pHp: playerHp, eHp: enemyHp,
+                    pLockedCardIdx: pLockedCardIdx, eLockedCardIdx: eLockedCardIdx,
+                    pUsedCardIdx: pUsedCardIdx, eUsedCardIdx: eUsedCardIdx,
+                    lastHostCard: hCard, lastHostCardIdx: hIdx,
+                    lastGuestCard: gCard, lastGuestCardIdx: gIdx,
+                    lastLog: tempLog, syncId: nextSyncId
+                });
+            } else if (!isOnlineMode) {
+                executeTurnResolveVisuals(hCard, hIdx, gCard, gIdx, tempLog);
             }
-
-            let pDmg = 0, eDmg = 0;
-
-            if (result === 'player') {
-                eDmg = calculateDamage(pCard, playerChar, enemyChar, isFirstTurn, playerBuffs, eCard);
-                tempLog += `> あなたの勝利！ 相手に ${eDmg} のダメージ！<br>`;
-                if (pCard === "パー" && playerChar.trait === "silvaHeal") playerHp = Math.min(playerChar.maxHp, playerHp + 30);
-                if (pCard === "グー" && playerChar.trait === "ironNextDebuff") eLockedCardIdx = eIdx; else eLockedCardIdx = -1;
-            } else if (result === 'enemy') {
-                pDmg = calculateDamage(eCard, enemyChar, playerChar, isFirstTurn, enemyBuffs, pCard);
-                tempLog += `> 相手の勝利... ${pDmg} のダメージ！<br>`;
-                if (eCard === "パー" && enemyChar.trait === "silvaHeal") enemyHp = Math.min(enemyChar.maxHp, enemyHp + 30);
-                if (eCard === "グー" && enemyChar.trait === "ironNextDebuff") pLockedCardIdx = pIdx; else pLockedCardIdx = -1;
-            } else {
-                tempLog += "> あいこ！(すばやさも同値) ダメージなし。<br>";
-                pLockedCardIdx = -1; eLockedCardIdx = -1;
-            }
-
-            playerHp -= pDmg; enemyHp -= eDmg;
-            
-            if (playerHp <= 0 && playerChar.item === "hpBook" && !playerGritTriggered) { playerHp = 1; playerGritTriggered = true; tempLog += "> 体力 of 書の効果でHP1で耐えた！<br>"; }
-            if (enemyHp <= 0 && enemyChar.item === "hpBook" && !enemyGritTriggered) { enemyHp = 1; enemyGritTriggered = true; tempLog += "> 相手は体力 of 書の効果でHP1で耐えた！<br>"; }
-
-            pUsedCardIdx = (playerChar.trait === "jackKeep" && pCard === "チョキ") ? -1 : pIdx;
-            eUsedCardIdx = (enemyChar.trait === "jackKeep" && eCard === "チョキ") ? -1 : eIdx;
-
-            executeTurnResolveVisuals(pCard, pIdx, eCard, eIdx, tempLog);
         }
 
         function executeTurnResolveVisuals(myHandStr, myIdx, opHandStr, opIdx, finalLog) {
@@ -1012,27 +1110,13 @@
             if (playerHp <= 0 || enemyHp <= 0) {
                 setTimeout(endBattle, 1500);
             } else {
-                currentTurn++; isFirstTurn = false;
+                currentTurn++;
+                isItemTriggeredThisTurn = false;
+                updateBattleItemButtonUI();
                 document.querySelectorAll(".card-btn").forEach(b => b.disabled = false);
                 renderHandButtons();
                 startTurnTimer();
             }
-        }
-
-        function calculateDamage(winningHand, winner, loser, isFirst, winnerBuffs, loserHand) {
-            let baseAtk = winner.atk;
-            if (winner.trait === "rageDouble" && winner.hp <= (winner.maxHp / 2)) baseAtk *= 2;
-            if (winningHand === "グー" && winner.trait === "gambleBoost") baseAtk *= 3;
-            if (winnerBuffs.nextAtkMult) baseAtk *= winnerBuffs.nextAtkMult;
-            if (winnerBuffs.revengeAtkMult) baseAtk *= winnerBuffs.revengeAtkMult;
-            if (winnerBuffs.guyDebuffed) baseAtk -= 30;
-            if (winnerBuffs.ironDebuffed) baseAtk *= 0.5;
-
-            let dmg = Math.max(1, Math.floor(baseAtk));
-            
-            if (isFirst && winner.item === "atkBook") dmg += 15;
-            if (winningHand === "チョキ" && loser.trait === "antiScissors") dmg = Math.max(1, dmg - 15);
-            return dmg;
         }
 
         function endBattle() {
@@ -1041,10 +1125,6 @@
             const rewardEl = document.getElementById("gold-reward-msg");
             const unlockArea = document.getElementById("unlock-area");
             unlockArea.classList.add("hidden");
-
-            // 試合が終わったらアイテム使用回数制限のカウントを0に戻す
-            itemUseCount = 0;
-            localStorage.setItem('luckl_item_use_count', 0);
 
             if (playerHp > 0 && enemyHp <= 0) {
                 msgEl.innerText = "WIN!! あなたの勝利！"; msgEl.style.color = "var(--success-color)";
@@ -1067,9 +1147,6 @@
         }
 
         function quitToTitle() {
-            // タイトルに戻る時もアイテム使用回数を安全のためにリセット
-            itemUseCount = 0;
-            localStorage.setItem('luckl_item_use_count', 0);
             leaveFirebaseRoom();
             switchScreen('title-screen');
         }
@@ -1122,51 +1199,6 @@
                 localStorage.clear(); window.location.reload();
             }
         }
-
-        // 🎒 バトル中にアイテム発動ボタンを押したときの処理
-        function useItemInBattle() {
-            if (itemUseCount >= 2) return alert("アイテムは一試合に2回までしか使えません！");
-            if (isItemTriggeredThisTurn) return alert("このターンはすでにアイテムを使用しています。");
-
-            itemUseCount++;
-            isItemTriggeredThisTurn = true;
-
-            // ローカル適用（効果の発動）
-            applyRealtimeItemEffect("player", playerChar.item);
-
-            // 【追加】自分のアイコン枠（p-avatar-box）を一瞬ピカッと光らせる
-            const pBox = document.getElementById("p-avatar-box");
-            if (pBox) {
-                pBox.classList.remove("flash-effect"); // アニメーションを一度リセット
-                void pBox.offsetWidth;                 // 再トリガー用のブラウザハック
-                pBox.classList.add("flash-effect");    // 光るクラスを適用
-            }
-
-            // オンラインモードなら相手に発動を通信
-            if (isOnlineMode && roomRef) {
-                if (myRole === "host") {
-                    roomRef.update({ hostItemTriggered: playerChar.item });
-                } else {
-                    roomRef.update({ guestItemTriggered: playerChar.item });
-                }
-            } else {
-                // 🤖 ソロモードならAIも30%の確率で持ち込みアイテムを割り込み使用してくる
-                if (enemyChar.item !== "none" && Math.random() < 0.3) {
-                    applyRealtimeItemEffect("enemy", enemyChar.item);
-                    
-                    // 【追加】相手が使ったときは相手のアイコン枠（e-avatar-box）を光らせる
-                    const eBox = document.getElementById("e-avatar-box");
-                    if (eBox) {
-                        eBox.classList.remove("flash-effect");
-                        void eBox.offsetWidth;
-                        eBox.classList.add("flash-effect");
-                    }
-                }
-            }
-
-            updateBattleItemButtonUI();
-        }
-        
     </script>
 </body>
 </html>
