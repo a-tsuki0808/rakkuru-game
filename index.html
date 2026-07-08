@@ -213,6 +213,17 @@
 
         .item-market { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin: 20px 0; }
         .item-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; background: #fff; text-align: left; }
+
+
+        /* 🎒 アイテム使用時の光るアニメーション */
+        @keyframes item-flash {
+            0% { filter: brightness(1); box-shadow: 0 0 0px transparent; }
+            50% { filter: brightness(2.5); box-shadow: 0 0 20px #fff; transform: scale(1.05); }
+            100% { filter: brightness(1); box-shadow: 0 0 0px transparent; }
+        }
+        .flash-effect {
+            animation: item-flash 0.6s ease-out;
+        }
     </style>
 </head>
 <body>
@@ -1111,6 +1122,51 @@
                 localStorage.clear(); window.location.reload();
             }
         }
+
+        // 🎒 バトル中にアイテム発動ボタンを押したときの処理
+        function useItemInBattle() {
+            if (itemUseCount >= 2) return alert("アイテムは一試合に2回までしか使えません！");
+            if (isItemTriggeredThisTurn) return alert("このターンはすでにアイテムを使用しています。");
+
+            itemUseCount++;
+            isItemTriggeredThisTurn = true;
+
+            // ローカル適用（効果の発動）
+            applyRealtimeItemEffect("player", playerChar.item);
+
+            // 【追加】自分のアイコン枠（p-avatar-box）を一瞬ピカッと光らせる
+            const pBox = document.getElementById("p-avatar-box");
+            if (pBox) {
+                pBox.classList.remove("flash-effect"); // アニメーションを一度リセット
+                void pBox.offsetWidth;                 // 再トリガー用のブラウザハック
+                pBox.classList.add("flash-effect");    // 光るクラスを適用
+            }
+
+            // オンラインモードなら相手に発動を通信
+            if (isOnlineMode && roomRef) {
+                if (myRole === "host") {
+                    roomRef.update({ hostItemTriggered: playerChar.item });
+                } else {
+                    roomRef.update({ guestItemTriggered: playerChar.item });
+                }
+            } else {
+                // 🤖 ソロモードならAIも30%の確率で持ち込みアイテムを割り込み使用してくる
+                if (enemyChar.item !== "none" && Math.random() < 0.3) {
+                    applyRealtimeItemEffect("enemy", enemyChar.item);
+                    
+                    // 【追加】相手が使ったときは相手のアイコン枠（e-avatar-box）を光らせる
+                    const eBox = document.getElementById("e-avatar-box");
+                    if (eBox) {
+                        eBox.classList.remove("flash-effect");
+                        void eBox.offsetWidth;
+                        eBox.classList.add("flash-effect");
+                    }
+                }
+            }
+
+            updateBattleItemButtonUI();
+        }
+        
     </script>
 </body>
 </html>
