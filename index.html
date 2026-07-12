@@ -245,6 +245,83 @@
             background: #cbd5e1;
             cursor: not-allowed;
         }
+
+       /* ─────────────────────────────────────────────────────────
+   スマートフォン横画面（横幅が狭い、または横向き）向けの調整
+   ───────────────────────────────────────────────────────── */
+@media screen and (max-width: 900px) and (orientation: landscape), screen and (max-height: 500px) {
+    body {
+        padding: 5px;
+    }
+
+    /* メインコンテナの最大幅を広げ、余白を削る */
+    .container {
+        max-width: 95vw !important;
+        padding: 10px !important;
+        margin-top: 5px !important;
+    }
+
+    /* バトル画面のレイアウトを横並びに変更 */
+    #battle-view {
+        display: flex;
+        flex-direction: row;
+        gap: 15px;
+        align-items: start;
+    }
+
+    /* 左側：ステータスや場に出たカード */
+    .battle-left {
+        flex: 1.2;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    /* 右側：手札やアイテムボタン、ログ */
+    .battle-right {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    /* 既存の要素の並び替え用調整（JS側で分離するため、CSSで枠を調整） */
+    #vs-container {
+        margin: 5px 0 !important;
+        padding: 5px !important;
+    }
+
+    /* 出したカードの画像サイズをスマホ用に少し小さく */
+    .battle-hand-img {
+        width: 60px !important;
+        height: 60px !important;
+    }
+
+    /* ログボックスを横画面の空きスペースに合わせて低くする */
+    #log-box {
+        height: 70px !important;
+        font-size: 12px !important;
+        margin-top: 5px !important;
+    }
+
+    /* 手札ボタンのグリッドをスマホでも押しやすいサイズに */
+    #player-hand-zone {
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 6px !important;
+    }
+
+    .card-btn {
+        padding: 8px 4px !important;
+        font-size: 12px !important;
+    }
+
+    /* タイマーやターン表示の文字を少し小さく */
+    h2, h3 {
+        font-size: 16px !important;
+        margin: 2px 0 !important;
+    }
+}
+
     </style>
 </head>
 <body>
@@ -307,7 +384,7 @@
     </div>
 
     <div id="battle-screen" class="screen hidden">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 5px;">
+     　　  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 5px;">
             <h2 id="battle-mode-title">バトル中</h2>
             <div class="timer-display" id="turn-timer">⏱️ 30</div>
         </div>
