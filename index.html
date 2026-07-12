@@ -1108,55 +1108,25 @@
             }
         }
 function executeTurnResolveVisuals(myHandStr, myIdx, opHandStr, opIdx, finalLog) {
-    // じゃんけん画像のリスト（シャッフル用）
-    const imgList = Object.values(JANKEN_IMAGES);
-    
-    // アニメーション中のボタン誤操作を防ぐため、念のためもう一度全無効化
-    document.querySelectorAll(".card-btn").forEach(b => b.disabled = true);
-    document.getElementById("battle-item-use-btn").disabled = true;
+    // 1. お互いが出した本当のカードの画像を即座に表示
+    document.getElementById("p-played-card").innerHTML = `<img src="${JANKEN_IMAGES[myHandStr]}" class="battle-hand-img">`;
+    document.getElementById("e-played-card").innerHTML = `<img src="${JANKEN_IMAGES[opHandStr]}" class="battle-hand-img">`;
 
-    let duration = 0;
-    const shuffleInterval = 50; // 0.05秒間隔で画像を切り替え
-    const totalTime = 2000;     // 2秒間アニメーションさせる
+    // 2. ログとHPの表示を更新
+    document.getElementById("log-box").innerHTML = finalLog;
+    updateHpDisplay();
 
-    // 高速シャッフル開始
-    const timer = setInterval(() => {
-        // ランダムに画像を選んで表示
-        const randomImgP = imgList[Math.floor(Math.random() * imgList.length)];
-        const randomImgE = imgList[Math.floor(Math.random() * imgList.length)];
-        
-        document.getElementById("p-played-card").innerHTML = `<img src="${randomImgP}" class="battle-hand-img">`;
-        document.getElementById("e-played-card").innerHTML = `<img src="${randomImgE}" class="battle-hand-img">`;
-
-        duration += shuffleInterval;
-
-        // 2秒経ったらシャッフルを止めて結果を表示
-        if (duration >= totalTime) {
-            clearInterval(timer);
-            
-            // ─── ここから本来の結果表示処理 ───
-            
-            // 1. 本当に出したカードを確定表示
-            document.getElementById("p-played-card").innerHTML = `<img src="${JANKEN_IMAGES[myHandStr]}" class="battle-hand-img">`;
-            document.getElementById("e-played-card").innerHTML = `<img src="${JANKEN_IMAGES[opHandStr]}" class="battle-hand-img">`;
-
-            // 2. ログとHPの更新（★ここを updateHpDisplay() に修正しました）
-            document.getElementById("log-box").innerHTML = finalLog;
-            updateHpDisplay();
-
-            // 3. 勝敗判定または次のターンへの移行
-            if (playerHp <= 0 || enemyHp <= 0) {
-                setTimeout(endBattle, 1500);
-            } else {
-                currentTurn++;
-                isItemTriggeredThisTurn = false;
-                updateBattleItemButtonUI();
-                document.querySelectorAll(".card-btn").forEach(b => b.disabled = false);
-                renderHandButtons();
-                startTurnTimer();
-            }
-        }
-    }, shuffleInterval);
+    // 3. 勝敗判定または次のターンへの移行
+    if (playerHp <= 0 || enemyHp <= 0) {
+        setTimeout(endBattle, 1500);
+    } else {
+        currentTurn++;
+        isItemTriggeredThisTurn = false;
+        updateBattleItemButtonUI();
+        document.querySelectorAll(".card-btn").forEach(b => b.disabled = false);
+        renderHandButtons();
+        startTurnTimer();
+    }
 }
 
         function endBattle() {
