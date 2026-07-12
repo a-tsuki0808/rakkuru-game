@@ -1107,14 +1107,44 @@
                 executeTurnResolveVisuals(hCard, hIdx, gCard, gIdx, tempLog);
             }
         }
+function executeTurnResolveVisuals(myHandStr, myIdx, opHandStr, opIdx, finalLog) {
+    // じゃんけん画像のリスト（シャッフル用）
+    const imgList = Object.values(JANKEN_IMAGES);
+    
+    // アニメーション中のボタン誤操作を防ぐため、念のためもう一度全無効化
+    document.querySelectorAll(".card-btn").forEach(b => b.disabled = true);
+    document.getElementById("battle-item-use-btn").disabled = true;
 
-        function executeTurnResolveVisuals(myHandStr, myIdx, opHandStr, opIdx, finalLog) {
+    let duration = 0;
+    const shuffleInterval = 50; // 0.05秒間隔で画像を切り替え
+    const totalTime = 2000;     // 2秒間アニメーションさせる
+
+    // 高速シャッフル開始
+    const timer = setInterval(() => {
+        // ランダムに画像を選んで表示
+        const randomImgP = imgList[Math.floor(Math.random() * imgList.length)];
+        const randomImgE = imgList[Math.floor(Math.random() * imgList.length)];
+        
+        document.getElementById("p-played-card").innerHTML = `<img src="${randomImgP}" class="battle-hand-img">`;
+        document.getElementById("e-played-card").innerHTML = `<img src="${randomImgE}" class="battle-hand-img">`;
+
+        duration += shuffleInterval;
+
+        // 2秒経ったらシャッフルを止めて結果を表示
+        if (duration >= totalTime) {
+            clearInterval(timer);
+            
+            // ─── ここから本来の結果表示処理 ───
+            
+            // 1. 本当に出したカードを確定表示
             document.getElementById("p-played-card").innerHTML = `<img src="${JANKEN_IMAGES[myHandStr]}" class="battle-hand-img">`;
             document.getElementById("e-played-card").innerHTML = `<img src="${JANKEN_IMAGES[opHandStr]}" class="battle-hand-img">`;
 
+            // 2. ログとHPの更新（★ここを updateHpDisplay() に修正しました）
             document.getElementById("log-box").innerHTML = finalLog;
-            syncHpUI();
+            updateHpDisplay();
 
+            // 3. 勝敗判定または次のターンへの移行
             if (playerHp <= 0 || enemyHp <= 0) {
                 setTimeout(endBattle, 1500);
             } else {
@@ -1126,6 +1156,8 @@
                 startTurnTimer();
             }
         }
+    }, shuffleInterval);
+}
 
         function endBattle() {
             clearInterval(timerInterval);
