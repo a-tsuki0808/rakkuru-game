@@ -1107,28 +1107,26 @@
                 executeTurnResolveVisuals(hCard, hIdx, gCard, gIdx, tempLog);
             }
         }
+
 function executeTurnResolveVisuals(myHandStr, myIdx, opHandStr, opIdx, finalLog) {
-    // 1. お互いが出した本当のカードの画像を即座に表示
-    document.getElementById("p-played-card").innerHTML = `<img src="${JANKEN_IMAGES[myHandStr]}" class="battle-hand-img">`;
-    document.getElementById("e-played-card").innerHTML = `<img src="${JANKEN_IMAGES[opHandStr]}" class="battle-hand-img">`;
+  document.getElementById("p-played-card").innerHTML = `<img src="${JANKEN_IMAGES[myHandStr]}" class="battle-hand-img">`;
+            document.getElementById("e-played-card").innerHTML = `<img src="${JANKEN_IMAGES[opHandStr]}" class="battle-hand-img">`;
 
-    // 2. ログとHPの表示を更新
-    document.getElementById("log-box").innerHTML = finalLog;
-    updateHpDisplay();
+            document.getElementById("log-box").innerHTML = finalLog;
+            syncHpUI();
 
-    // 3. 勝敗判定または次のターンへの移行
-    if (playerHp <= 0 || enemyHp <= 0) {
-        setTimeout(endBattle, 1500);
-    } else {
-        currentTurn++;
-        isItemTriggeredThisTurn = false;
-        updateBattleItemButtonUI();
-        document.querySelectorAll(".card-btn").forEach(b => b.disabled = false);
-        renderHandButtons();
-        startTurnTimer();
-    }
-}
-
+            if (playerHp <= 0 || enemyHp <= 0) {
+                setTimeout(endBattle, 1500);
+            } else {
+                currentTurn++;
+                isItemTriggeredThisTurn = false;
+                updateBattleItemButtonUI();
+                document.querySelectorAll(".card-btn").forEach(b => b.disabled = false);
+                renderHandButtons();
+                startTurnTimer();
+            }
+        }
+        
         function endBattle() {
             clearInterval(timerInterval);
             const msgEl = document.getElementById("result-title");
