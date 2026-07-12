@@ -1090,13 +1090,19 @@
 
             if (isOnlineMode && myRole === "host") {
                 roomRef.update({
-                    pHp: playerHp, eHp: enemyHp,
-                    pLockedCardIdx: pLockedCardIdx, eLockedCardIdx: eLockedCardIdx,
-                    pUsedCardIdx: pUsedCardIdx, eUsedCardIdx: eUsedCardIdx,
-                    lastHostCard: hCard, lastHostCardIdx: hIdx,
-                    lastGuestCard: gCard, lastGuestCardIdx: gIdx,
-                    lastLog: tempLog, syncId: nextSyncId
-                });
+        pHp: playerHp, eHp: enemyHp,
+        pLockedCardIdx: pLockedCardIdx, eLockedCardIdx: eLockedCardIdx,
+        pUsedCardIdx: pUsedCardIdx, eUsedCardIdx: eUsedCardIdx,
+        lastHostCard: hCard, lastHostCardIdx: hIdx,
+        lastGuestCard: gCard, lastGuestCardIdx: gIdx,
+        lastLog: tempLog, syncId: nextSyncId,
+        
+        // ★ここに次のターンのためのカードリセット処理を追加
+        hostCard: "", 
+        hostCardIdx: -1,
+        guestCard: "", 
+        guestCardIdx: -1
+    });
             } else if (!isOnlineMode) {
                 executeTurnResolveVisuals(hCard, hIdx, gCard, gIdx, tempLog);
             }
