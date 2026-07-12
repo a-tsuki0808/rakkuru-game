@@ -595,14 +595,14 @@
                     currentTurn = 1; 
                     enemyChar = JSON.parse(JSON.stringify(myRole === "host" ? data.guestChar : data.hostChar));
                     enemyHand = myRole === "host" ? data.guestHand : data.hostHand;
-                    
-                    if (myRole === "host") {
-                        playerHp = data.pHp;
-                        enemyHp = data.eHp;
-                    } else {
-                        playerHp = data.eHp;
-                        enemyHp = data.pHp;
-                    }
+                 
+                 if (myRole === "host") {
+        playerHp = parseInt(data.pHp, 10);
+        enemyHp = parseInt(data.eHp, 10);
+    } else {
+        playerHp = parseInt(data.eHp, 10);
+        enemyHp = parseInt(data.pHp, 10);
+    }
 
                     launchBattleView();
                 }
@@ -1061,8 +1061,10 @@
                 pState.winStreak = 0; eState.winStreak = 0;
                 pState.hitLastTurn = false; eState.hitLastTurn = false;
             }
-
-            playerHp -= pDmg; enemyHp -= eDmg;
+　　　　　　// ダメージ計算の直前で、現在のHPが確実に数字であることを保証する
+　　　　　　　playerHp = parseInt(playerHp, 10);
+　　　　　　　　enemyHp = parseInt(enemyHp, 10);
+            　　playerHp -= pDmg; enemyHp -= eDmg;
 
             // 💀 復活処理 ＆ 🎒 アイテム【体力の書】効果（HP1残し耐え）
             if (playerHp <= 0) {
